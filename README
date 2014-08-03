@@ -1,0 +1,13 @@
+Classes:
+
+* StereoPair: stores stereo images and operates on them.
+	- setupRectification
+	- rectifyImage
+	- rectificationViewer
+	- updateRectifiedPair
+	- updateDepthMap
+	- getMainImg
+	- saveCalibrationFrames
+* Odometry: Tracks position and updates map
+	- updateQueue
+
