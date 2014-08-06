@@ -12,17 +12,23 @@ namespace sp {
 
 StereoPair::StereoPair() {
 	// TODO Auto-generated constructor stub
-
 }
 
 StereoPair::StereoPair(int lCamId, int rCamId, int camFPS){
+	// Open the cameras
 	camL.open(lCamId);
 	camR.open(rCamId);
+	
+	// Set the frame rate
     camL.set(CV_CAP_PROP_FPS, camFPS);
     camR.set(CV_CAP_PROP_FPS, camFPS);
+	
+	// Check if the cameras are open
     if(!camL.isOpened()) printf("Cannot open left camera");
 	if(!camR.isOpened()) printf("Cannot open right camera");
-	if(camL.isOpened() && camR.isOpened()){ //print frame size
+	
+	if(camL.isOpened() && camR.isOpened()){
+		// Print frame size
 		double dWidth = camL.get(CV_CAP_PROP_FRAME_WIDTH);
 		double dHeight = camL.get(CV_CAP_PROP_FRAME_HEIGHT);
 		cout << "Left camera frame size : " << dWidth << " x " << dHeight << endl;
@@ -36,14 +42,18 @@ StereoPair::~StereoPair() {
 	// TODO Auto-generated destructor stub
 }
 
-void StereoPair::setupRectification(string calibrationFile, string calOutput)
+void StereoPair::setupRectification(const string& calibrationFile)
 {
 	Mat R1, R2, P1, P2, Q;
 	Mat rmap[2][2];
 	Rect validRoi[2];
 
+	// Open calibration file
 	FileStorage fs(calibrationFile, FileStorage::READ);
-	if(!fs.isOpened())cout << "Calibration file was not found" << endl;
+	
+	// Read calibration file
+	if(!fs.isOpened())
+		cout << "Calibration file was not found" << endl;
 	else{
 		Mat cameraMatrix0, cameraMatrix1, distCoeffs0, distCoeffs1, imgSize, RInitial, TInitial;
 		fs["Size"] >> imgSize;
@@ -57,57 +67,47 @@ void StereoPair::setupRectification(string calibrationFile, string calOutput)
 		imageSize.width = imgSize.at<double>(0, 0);
 		imageSize.height = imgSize.at<double>(1, 0);
 
+		// Compute rectification mappings based on the calibration
 		stereoRectify(cameraMatrix0, distCoeffs0, cameraMatrix1, distCoeffs1, imageSize, RInitial, TInitial, R1, R2, P1, P2, Q, CALIB_ZERO_DISPARITY, 0, imageSize, &validRoi[0], &validRoi[1]);
 		initUndistortRectifyMap(cameraMatrix0, distCoeffs0, R1, P1, imageSize, CV_16SC2, rmap[0][0], rmap[0][1]);
 		initUndistortRectifyMap(cameraMatrix1, distCoeffs1, R2, P2, imageSize, CV_16SC2, rmap[1][0], rmap[1][1]);
 
+		// Save the rectification mappings
 		recti.K = P1;
 		recti.B = P2.at<double>(0, 3) / P2.at<double>(0, 0);
 		for(int i=0; i<2; i++)
 		for(int j=0; j<2; j++)
 			recti.rmap[i][j] = rmap[i][j];
-
-		//write new calibration
-			FileStorage fout(calOutput, FileStorage::WRITE);
-			fout << "K" << recti.K << "T" << -recti.B;
-			fout.release();
 	}
 }
 
-void StereoPair::setupRectification(string calibrationFile)
+void StereoPair::setupRectification(const string& calibrationFile, const string& calOutput)
 {
-	Mat R1, R2, P1, P2, Q;
-	Mat rmap[2][2];
-	Rect validRoi[2];
+	// Load calibration and compute rectification mappings
+	setupRectification(calibrationFile);
 
-	FileStorage fs(calibrationFile, FileStorage::READ);
-	if(!fs.isOpened()) cout << "Calibration file was not found" << endl;
-	else{
-		Mat cameraMatrix0, cameraMatrix1, distCoeffs0, distCoeffs1, imgSize, RInitial, TInitial;
-		fs["Size"] >> imgSize;
-		fs["K1"] >> cameraMatrix0;
-		fs["distCoeffs1"] >> distCoeffs0;
-		fs["K2"] >> cameraMatrix1;
-		fs["distCoeffs2"] >> distCoeffs1;
-		fs["R"] >> RInitial;
-		fs["T"] >> TInitial;
-		Size imageSize;
-		imageSize.width = imgSize.at<double>(0, 0);
-		imageSize.height = imgSize.at<double>(1, 0);
-
-		stereoRectify(cameraMatrix0, distCoeffs0, cameraMatrix1, distCoeffs1, imageSize, RInitial, TInitial, R1, R2, P1, P2, Q, CALIB_ZERO_DISPARITY, 0, imageSize, &validRoi[0], &validRoi[1]);
-		initUndistortRectifyMap(cameraMatrix0, distCoeffs0, R1, P1, imageSize, CV_16SC2, rmap[0][0], rmap[0][1]);
-		initUndistortRectifyMap(cameraMatrix1, distCoeffs1, R2, P2, imageSize, CV_16SC2, rmap[1][0], rmap[1][1]);
-
-		recti.K = P1;
-		recti.B = P2.at<double>(0, 3) / P2.at<double>(0, 0);
-		for(int i=0; i<2; i++)
-		for(int j=0; j<2; j++)
-			recti.rmap[i][j] = rmap[i][j];
-	}
+	// Write the new calibration after rectification
+	FileStorage fout(calOutput, FileStorage::WRITE);
+	fout << "K" << recti.K << "T" << -recti.B;
+	fout.release();
 }
 
-Mat StereoPair::rectifyImage(const Mat& I, const Rectification& recti, bool left)
+void setupDisparity()
+{
+	sgbm.SADWindowSize = 5;
+	sgbm.numberOfDisparities = 208;
+	sgbm.preFilterCap = 4;
+	sgbm.minDisparity = 0;
+	sgbm.uniquenessRatio = 1;
+	sgbm.speckleWindowSize = 100;
+	sgbm.speckleRange = 2;
+	sgbm.disp12MaxDiff = 10;
+	sgbm.fullDP = false;
+	sgbm.P1 = 600;
+	sgbm.P2 = 2400;
+}
+
+Mat StereoPair::rectifyImage(const Mat& I, const Rectification& recti, const bool left)
 {
 	Mat O;
 
@@ -119,9 +119,9 @@ Mat StereoPair::rectifyImage(const Mat& I, const Rectification& recti, bool left
 	return O;
 }
 
-void StereoPair::RectificationViewer(Mat& IL, Mat& IR)
+void StereoPair::RectificationViewer(const Mat& IL, const Mat& IR)
 {
-	// set both images horizontally adjacent
+	// Set both images horizontally adjacent
 	Mat LR(IL.rows, IL.cols+IR.cols, IL.type());
 	Mat left_roi(LR, Rect(0, 0, IL.cols, IL.rows)); // Copy constructor
 	IL.copyTo(left_roi);
@@ -131,7 +131,7 @@ void StereoPair::RectificationViewer(Mat& IL, Mat& IR)
 	//Mat LR2;
 	//cvtColor(LR, LR2, CV_GRAY2RGB);
 
-	//draw lines
+	// Draw epipolar lines
 	for(int h=0; h<LR.rows; h+=20)
 	{
 		Point pt1(0, h);
@@ -147,7 +147,7 @@ bool StereoPair::updateRectifiedPair()
 {
 	Mat newFrameL, newFrameR;
 
-	//get new (unrectified) frames
+	// Get new (unrectified) frames
 	if (!camL.read(newFrameL)) return false;
 	if (!camR.read(newFrameR)) return false;
 
@@ -159,20 +159,13 @@ bool StereoPair::updateRectifiedPair()
 
 void StereoPair::updateDepthMap()
 {
-	StereoSGBM sgbm;
-	sgbm.SADWindowSize = 5;
-	sgbm.numberOfDisparities = 208;
-	sgbm.preFilterCap = 4;
-	sgbm.minDisparity = 0;
-	sgbm.uniquenessRatio = 1;
-	sgbm.speckleWindowSize = 100;
-	sgbm.speckleRange = 2;
-	sgbm.disp12MaxDiff = 10;
-	sgbm.fullDP = false;
-	sgbm.P1 = 600;
-	sgbm.P2 = 2400;
+	// This should be an attribute of the class
+	//StereoSGBM sgbm;
 
+	// Compute disparity map
 	sgbm(imgl, imgr, dmp);
+	
+	// TODO: This should be done only for visualization!!!!
 	normalize(dmp, dmp, 0, 255, CV_MINMAX, CV_8U);
 }
 
@@ -180,8 +173,10 @@ Mat StereoPair::getMainImg(){
 	return imgl;
 }
 
-void StereoPair::saveCalibrationFrames(string outputFolder)
+void StereoPair::saveCalibrationFrames(const string& outputFolder)
 {
+
+	// Create visualization windows
 	namedWindow("Left camera", CV_WINDOW_AUTOSIZE);
 	namedWindow("Right camera", CV_WINDOW_AUTOSIZE);
 
@@ -189,27 +184,33 @@ void StereoPair::saveCalibrationFrames(string outputFolder)
 	Mat newFrameL, newFrameR;
     while(1)
     {
-		// Get left image
-
+		// Grab stereo images
     	if (!camL.grab() || !camR.grab()){
     		cout << "Error getting frames from camera" << endl << "Try reducing FPS or frame size" << endl;
     		break;
     	}
+		
+		// Retrieve images
     	camL.retrieve(newFrameL);
     	camR.retrieve(newFrameR);
+		
+		// Show images
     	imshow("Left camera", newFrameL);
     	imshow("Right camera", newFrameR);
+		
 		// Wait for key press
-		int keyPressed = waitKey(30);
+		int keyPressed = waitKey(30);		// TODO: Be carefull here. You are waiting 30ms
 
 		// Save the images if required
-		if( keyPressed== 83 || keyPressed==115)
+		if( keyPressed==83 || keyPressed==115)
 		{
+			// Create the file names for saving the images
 			char fileName[256];
 			char fileName2[256];
 			sprintf(fileName, "%sCam0_%d.png", outputFolder.c_str(), frameId);
 			sprintf(fileName2, "%sCam1_%d.png", outputFolder.c_str(), frameId);
 
+			// Write the images
 			try {
 				imwrite(fileName, newFrameL);
 				imwrite(fileName2, newFrameR);
@@ -217,17 +218,21 @@ void StereoPair::saveCalibrationFrames(string outputFolder)
 			catch (runtime_error& ex) {
 				fprintf(stderr, "Exception converting image to PNG format: %s \n", ex.what());
 			}
+			
+			// Update the frame id
 			frameId++;
 		}
 
 		// Exit when esc key is pressed
-        if( keyPressed== 27)
+        if( keyPressed==27)
 		{
 			cout << "ESC key is pressed by user" << endl;
 			break;
 		}
 
     }
+	
+	// Close the windows
     destroyWindow("Left camera");
     destroyWindow("Right camera");
     printf("Saved %i calibration images \n", frameId);
