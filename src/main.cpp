@@ -21,27 +21,30 @@ int main(int argc, char* argv[])
 	string outputFolder		= "/home/alejandro/Desktop/Debug/";
 	string calibrationFile	= "/home/alejandro/Desktop/Stereo1/calibration_24-Jul-2014.txt";
 	string calOutput		= "/home/alejandro/Desktop/Stereo1/calibrationRectified.txt";
-	int leftImageID = 1;
-	int rightImageID = 2;
-	int frameRate = 20;
+	int leftImageID			= 1;
+	int rightImageID		= 2;
+	int frameRate			= 20;
 
+	// Create the stereo pair object
 	StereoPair stereo(leftImageID, rightImageID, frameRate);
-	Odometry odometry = Odometry();
-	// Init rectification
 	stereo.setupRectification(calibrationFile);
-
-//////Uncomment next line if you need to save chess board calibration frames///////
+	stereo.setupDisparity();
+	////// Uncomment next line if you need to save chess board calibration frames ///////
 	//stereo.saveCalibrationFrames(outputFolder);
 
+	// Create the odometry object
+	Odometry odometry = Odometry();
+	
 	cout << "press ESC to exit" << endl;
 
 	while(1){
 
+		// Get a new stereo pair and add it to the odometry queue
 		if(stereo.updateRectifiedPair()){ //function returns true if both frames are received correctly
 			odometry.updateQueue(stereo.getMainImg(), true);
 		}
 
-		//Program stops when user presses ESC key
+		// Program stops when user presses ESC key
 		int keyPressed = waitKey(30);
 		if( keyPressed== 27)
 		{
