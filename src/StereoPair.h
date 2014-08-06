@@ -33,26 +33,45 @@ struct Rectification
 	double B;
 };
 
-namespace sp {
-
 class StereoPair {
-	Mat imgl, imgr, dmp;  //imgl and imgr store rectified images
-	VideoCapture camL, camR;
-	Rectification recti;
+	//Atributes
+	VideoCapture	camL;	// Left camera
+	VideoCapture	camR;	// right camera
+	Rectification	recti;	// Rectification maps
+	StereoSGBM		sgbm;	// Disparity computation method
+	Mat				imgl;	// Rectified left image
+	Mat				imgr;	// Rectified right image
+	Mat				dmp;	// Disparity map (not normalised)
+	static double depthCoef; //multiplying by depth value gives the metric depth.
+	static double scaleCoef; //multiplying by depth value gives what distance represents a pixel at that depth.
+
 public:
-	StereoPair();
-	virtual ~StereoPair();
-	StereoPair(Mat IL, Mat IR);
+	//Constructors and destructors
+	StereoPair();			//TODO: default constructor does nothing!
 	StereoPair(int lCamId, int rCamId, int camFPS);
-	void setupRectification(string calibrationFile, string calOutput); //this version writes the new calibration parameters to the specified file
-	void setupRectification(string calibrationFile);
+	virtual ~StereoPair();
+
+	//Initialization methods
+	void setupRectification(string calibrationFile, string calOutput);
+	void setupDisparity();
+
+	//Functions
 	Mat rectifyImage(const Mat& I, const Rectification& recti, bool left);
-	void RectificationViewer(Mat& IL, Mat& IR);
 	bool updateRectifiedPair();
 	void updateDepthMap();
+	bool pixelToPoint(Mat& _dmp, Point2f pixel, Point3d& point);
+
+	//Get methods
 	Mat getMainImg();
-	void saveCalibrationFrames(string outputFolder); //on key press saves stereo images. Useful to get chess board images.
+	Mat getDepthMap();
+	Mat getDepthMapNormalised();
+
+	//Utilities
+	void calibrateCoefs();								//Utility to calibrate depthCoef and scaleCoef
+	void saveCalibrationFrames(string outputFolder);	//on 's' key press saves stereo images. Useful to get chess board images.
+	void saveCalibratedImages(string outputFolder);		//on 's' key press saves rectified images.
+	void RectificationViewer();							//Shows rectified images side to side with horizontal lines.
 };
 
-} /* namespace sp */
+
 #endif /* STEREOPAIR_H_ */

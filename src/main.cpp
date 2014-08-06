@@ -13,32 +13,32 @@
 
 using namespace cv;
 using namespace std;
-using namespace sp;
 
 int main(int argc, char* argv[])
 {
 	// Parameters
-	string outputFolder		= "/home/alejandro/Desktop/Debug/";
+	string outputFolder		= "/home/alejandro/Desktop/";
 	string calibrationFile	= "/home/alejandro/Desktop/Stereo1/calibration_24-Jul-2014.txt";
 	string calOutput		= "/home/alejandro/Desktop/Stereo1/calibrationRectified.txt";
-	int leftImageID = 1;
-	int rightImageID = 2;
+	int leftImageID = 2;
+	int rightImageID = 1;
 	int frameRate = 20;
 
 	StereoPair stereo(leftImageID, rightImageID, frameRate);
-	Odometry odometry = Odometry();
-	// Init rectification
-	stereo.setupRectification(calibrationFile);
-
+	stereo.setupRectification(calibrationFile, "");	// Init rectification. The second parameter is for storing the calibration output. Will be ignored if empty.
+	stereo.calibrateCoefs();
 //////Uncomment next line if you need to save chess board calibration frames///////
 	//stereo.saveCalibrationFrames(outputFolder);
+	//stereo.saveCalibratedImages(outputFolder);
+	Odometry odometry = Odometry(stereo);
+
+
 
 	cout << "press ESC to exit" << endl;
 
 	while(1){
-
 		if(stereo.updateRectifiedPair()){ //function returns true if both frames are received correctly
-			odometry.updateQueue(stereo.getMainImg(), true);
+			odometry.updateQueue(false);
 		}
 
 		//Program stops when user presses ESC key
