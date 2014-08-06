@@ -38,10 +38,14 @@ namespace sp
 
 class StereoPair 
 {
-	Mat imgl, imgr, dmp;  //imgl and imgr store rectified images
-	VideoCapture camL, camR;
-	Rectification recti;
-
+	VideoCapture	camL;	// Left camera
+	VideoCapture	camR;	// right camera
+	Rectification	recti;	// Rectification maps
+	StereoSGBM		sgbm;	// Disparity computation method
+	Mat				imgl;	// Rectified left image
+	Mat				imgr;	// Rectified right image
+	Mat				dmp;	// Disparity image. TODO: Normalized!!!
+	
 public:
 
 	// Constructors and destructors
@@ -53,7 +57,8 @@ public:
 	// Initialization methods
 	void setupRectification		(const string& calibrationFile, const string& calOutput); // This version writes the new calibration parameters to the specified file
 	void setupRectification		(const string& calibrationFile);
-
+	void setupDisparity			();
+	
 	// Functions
 	Mat rectifyImage			(const Mat& I, const Rectification& recti, const bool left);
 	void RectificationViewer	(const Mat& IL, const Mat& IR);
