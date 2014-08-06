@@ -33,25 +33,38 @@ struct Rectification
 	double B;
 };
 
-namespace sp {
+namespace sp 
+{
 
-class StereoPair {
+class StereoPair 
+{
 	Mat imgl, imgr, dmp;  //imgl and imgr store rectified images
 	VideoCapture camL, camR;
 	Rectification recti;
+
 public:
-	StereoPair();
-	virtual ~StereoPair();
-	StereoPair(Mat IL, Mat IR);
-	StereoPair(int lCamId, int rCamId, int camFPS);
-	void setupRectification(string calibrationFile, string calOutput); //this version writes the new calibration parameters to the specified file
-	void setupRectification(string calibrationFile);
-	Mat rectifyImage(const Mat& I, const Rectification& recti, bool left);
-	void RectificationViewer(Mat& IL, Mat& IR);
-	bool updateRectifiedPair();
-	void updateDepthMap();
-	Mat getMainImg();
-	void saveCalibrationFrames(string outputFolder); //on key press saves stereo images. Useful to get chess board images.
+
+	// Constructors and destructors
+	StereoPair					();
+	StereoPair					(Mat IL, Mat IR);
+	StereoPair					(const int lCamId, const int rCamId, const int camFPS);
+	virtual ~StereoPair			();
+
+	// Initialization methods
+	void setupRectification		(const string& calibrationFile, const string& calOutput); // This version writes the new calibration parameters to the specified file
+	void setupRectification		(const string& calibrationFile);
+
+	// Functions
+	Mat rectifyImage			(const Mat& I, const Rectification& recti, const bool left);
+	void RectificationViewer	(const Mat& IL, const Mat& IR);
+	bool updateRectifiedPair	();
+	void updateDepthMap			();
+	void saveCalibrationFrames	(string outputFolder); //On key press saves stereo images. Useful to get chess board images.
+	
+	// Get methods
+	Mat getMainImg				();
+	
+	// Set methods
 };
 
 } /* namespace sp */
