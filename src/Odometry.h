@@ -45,6 +45,7 @@ class Odometry {
 	vector<int> sightings;			//Sighting counter for unverified points.
 	vector<int> unSightings;		//Unsighting counter for unverified points.
 	vector<int> vunSightings;		//Unsighting counter for verified points.
+	Mat position;					//Matrix to store position and rotation of the camera.
 
 		//Parameters and thresholds
 	int sightingsToVerify;			//how many a new key point has to bee detected to become validated.
@@ -68,7 +69,7 @@ public:
 
 	//Functions
 	bool updateQueue(bool showResult);
-	bool processNewFrame(vector<KeyPoint>& kp, Mat& descriptors);
+	bool processNewFrame(vector<KeyPoint> & kp, Mat & descriptors);
 	void incrementSightningsCounters(vector<DMatch> matches, vector<KeyPoint> keyPoints, Mat depthMap);
 	Point3d triangulatePos(Point3d point1, Point3d point2, Point3d point3, float dist1, float dist2, float dist3);
 };

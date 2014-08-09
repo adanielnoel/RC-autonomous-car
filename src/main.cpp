@@ -26,11 +26,12 @@ int main(int argc, char* argv[])
 
 	StereoPair stereo(leftImageID, rightImageID, frameRate);
 	stereo.setupRectification(calibrationFile, "");	// Init rectification. The second parameter is for storing the calibration output. Will be ignored if empty.
-	stereo.calibrateCoefs();
+	//stereo.calibrateCoefs();
 //////Uncomment next line if you need to save chess board calibration frames///////
 	//stereo.saveCalibrationFrames(outputFolder);
 	//stereo.saveCalibratedImages(outputFolder);
 	Odometry odometry = Odometry(stereo);
+	odometry.initOdometry(11);
 
 
 

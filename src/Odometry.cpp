@@ -29,17 +29,20 @@ bool Odometry::initOdometry(int numFrames){
 		vector<KeyPoint> newKeypoints;
 		Mat newDescriptors;
 		if(!this->processNewFrame(newKeypoints, newDescriptors))return false;
+		cout << newDescriptors.rows << "   " << newKeypoints.size() << "    " << (newDescriptors.rows == newKeypoints.size()) << endl;
 		descriptors.push_back(newDescriptors);
 	}
+	cout << descriptors.size() << endl;
 	matcher.add(descriptors);
-	matcher.train();
+	//matcher.train();
 
 	vector<KeyPoint> newKeypoints;
 	Mat newDescriptors;
 	if(!this->processNewFrame(newKeypoints, newDescriptors))return false;
 	vector<DMatch> matches;
-	matcher.match(newDescriptors, matches);
-
+	//matcher.match(newDescriptors, matches);
+	for(int i=0; i<matches.size(); i++)
+		cout << "queryIdx: " << matches.at(i).queryIdx << "   trainIdx: " << matches.at(i).trainIdx << "   imgIdx: " << matches.at(i).imgIdx << endl;
 	return true;
 }
 
@@ -93,7 +96,7 @@ void Odometry::incrementSightningsCounters(vector<DMatch> matches, vector<KeyPoi
 	int sightingsToVerify;	//how many a new key point has to bee detected to become validated
 	int sightingsToStore;
 	*/
-	bool descriptorsSeen[descriptorFeed.rows];
+	/*bool descriptorsSeen[descriptorFeed.rows];
 	for(int i=0; i<matches.size(); i++){
 		cout << "queryIdx: " << matches.at(i).queryIdx << "   trainIdx: " << matches.at(i).trainIdx << endl;
 		sightings.at(matches.at(i).trainIdx)++;
@@ -103,7 +106,7 @@ void Odometry::incrementSightningsCounters(vector<DMatch> matches, vector<KeyPoi
 		if(!descriptorsSeen[i]){
 			unSightings.at(i)++;
 		}
-	}
+	}*/
 	/*
 	Point2f pixel = keyPoints.at(i).pt;
 	Point3d point3D;
@@ -112,7 +115,7 @@ void Odometry::incrementSightningsCounters(vector<DMatch> matches, vector<KeyPoi
 }
 
 
-bool Odometry::processNewFrame(vector<KeyPoint>& kp, Mat& descriptors){
+bool Odometry::processNewFrame(vector<KeyPoint> & kp, Mat & descriptors){
 	if(!camera.updateRectifiedPair()) return false;
 	Mat img = camera.getMainImg();
 	if(img.empty()) return false;
