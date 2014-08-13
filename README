@@ -1,3 +1,5 @@
+Version 0.1.2 Code is now carefully commented and there are lots of command line feedback
+--------------------------------------------------------------------
 Version 0.1.1 Added documentation
 + Path planning algorithm proposal
 + Odometry algorithm explanation

@@ -34,6 +34,7 @@ struct pointAndFeat{
 };
 
 class Odometry {
+
 	//Atributes
 
 		//Data storage
@@ -52,11 +53,15 @@ class Odometry {
 	int unSightingsToStore;			//How many times a point has to not be detected to be stored.
 	int unSightingsToDelete;		//How many times an unverified descriptor has to be unseen to be deleted.
 
-		//Objects
+		//Tool objects
 	FastFeatureDetector detector;
 	BriefDescriptorExtractor extractor;
-	FlannBasedMatcher matcher;
+	BFMatcher matcher;
 	StereoPair camera;
+
+		//Class parameters
+	static int AUTO_REPEAT;
+	static int PROMPT_REPEAT;
 
 public:
 	//Constructors and destructors
@@ -65,13 +70,14 @@ public:
 	virtual ~Odometry();
 
 	//Initialization methods
-	bool initOdometry(int numFrames);
+	bool initOdometry(int numFrames, bool promptRepeat);
 
 	//Functions
 	bool updateQueue(bool showResult);
 	bool processNewFrame(vector<KeyPoint> & kp, Mat & descriptors);
 	void incrementSightningsCounters(vector<DMatch> matches, vector<KeyPoint> keyPoints, Mat depthMap);
-	Point3d triangulatePos(Point3d point1, Point3d point2, Point3d point3, float dist1, float dist2, float dist3);
+	Mat findCommonDescriptors(Mat desc1, Mat desc2);
+	vector<Point3d> featuresToPoints(Mat img3D, vector<KeyPoint> keyPoints,vector<DMatch> validKeyPoints);
 };
 
 /*

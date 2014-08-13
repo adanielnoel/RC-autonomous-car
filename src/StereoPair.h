@@ -34,21 +34,22 @@ struct Rectification
 };
 
 class StereoPair {
+
 	//Atributes
-	VideoCapture	camL;	// Left camera
-	VideoCapture	camR;	// right camera
-	Rectification	recti;	// Rectification maps
-	StereoSGBM		sgbm;	// Disparity computation method
-	Mat				imgl;	// Rectified left image
-	Mat				imgr;	// Rectified right image
-	Mat				dmp;	// Disparity map (not normalised)
-	static double depthCoef; //multiplying by depth value gives the metric depth.
-	static double scaleCoef; //multiplying by depth value gives what distance represents a pixel at that depth.
+	VideoCapture	camL;			// Left camera
+	VideoCapture	camR;			// right camera
+	Rectification	recti;			// Rectification maps
+	StereoSGBM		sgbm;			// Disparity computation method
+	Mat				imgl;			// Rectified left image
+	Mat				imgr;			// Rectified right image
+	Mat				dsp;			// Disparity map (not normalized)
+	Mat				img3D;			// Depth map
+	Mat				dispToDepthMat; //matrix from stereoRectify(..., Q, ...);
 
 public:
 	//Constructors and destructors
 	StereoPair();			//TODO: default constructor does nothing!
-	StereoPair(int lCamId, int rCamId, int camFPS);
+	StereoPair(int lCamId, int rCamId, int camFPS, bool & success);
 	virtual ~StereoPair();
 
 	//Initialization methods
@@ -56,21 +57,21 @@ public:
 	void setupDisparity();
 
 	//Functions
-	Mat rectifyImage(const Mat& I, const Rectification& recti, bool left);
+	Mat rectifyImage(const Mat& unrectifiedImage, const Rectification& recti, bool left);
 	bool updateRectifiedPair();
-	void updateDepthMap();
-	bool pixelToPoint(Mat& _dmp, Point2f pixel, Point3d& point);
+	void updateDisparityImg();
+	void updateImg3D();
 
 	//Get methods
 	Mat getMainImg();
-	Mat getDepthMap();
-	Mat getDepthMapNormalised();
+	Mat getDisparityImg();
+	Mat getImg3D();
+	Mat getDisparityImgNormalised();
 
 	//Utilities
-	void calibrateCoefs();								//Utility to calibrate depthCoef and scaleCoef
-	void saveCalibrationFrames(string outputFolder);	//on 's' key press saves stereo images. Useful to get chess board images.
-	void saveCalibratedImages(string outputFolder);		//on 's' key press saves rectified images.
-	void RectificationViewer();							//Shows rectified images side to side with horizontal lines.
+	void saveUncalibratedStereoImages(string outputFolder);		//on 's' key press saves stereo images. Useful to get chess board images.
+	void saveCalibratedStereoImages(string outputFolder);		//on 's' key press saves rectified images.
+	void RectificationViewer();									//Shows rectified images side to side with horizontal lines.
 };
 
 

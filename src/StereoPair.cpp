@@ -13,16 +13,19 @@ StereoPair::StereoPair() {
 
 }
 
-double StereoPair::depthCoef = 1;	//test values. NON REAL VALUES
-double StereoPair::scaleCoef = 2;	//test values. NON REAL VALUES
+//double StereoPair::depthCoef = 1;	//test values. NON REAL VALUES
 
-StereoPair::StereoPair(int lCamId, int rCamId, int camFPS){
+StereoPair::StereoPair(int lCamId, int rCamId, int camFPS, bool & success){
+	//Open and configure cameras
+	camL = VideoCapture();
+	camR = VideoCapture();
 	camL.open(lCamId);
 	camR.open(rCamId);
     camL.set(CV_CAP_PROP_FPS, camFPS);
     camR.set(CV_CAP_PROP_FPS, camFPS);
-    if(!camL.isOpened()) cout << "Cannot open left camera" << endl;
-	if(!camR.isOpened()) cout << "Cannot open right camera" << endl;
+    //Check and print camera info
+    if(!camL.isOpened()){ cout << "Cannot open left camera" << endl; success = false;}
+	if(!camR.isOpened()){ cout << "Cannot open right camera" << endl; success = false;}
 	if(camL.isOpened() && camR.isOpened()){ //print frame size
 		double dWidth = camL.get(CV_CAP_PROP_FRAME_WIDTH);
 		double dHeight = camL.get(CV_CAP_PROP_FRAME_HEIGHT);
@@ -30,7 +33,9 @@ StereoPair::StereoPair(int lCamId, int rCamId, int camFPS){
 		dWidth = camR.get(CV_CAP_PROP_FRAME_WIDTH);
 		dHeight = camR.get(CV_CAP_PROP_FRAME_HEIGHT);
 		cout << "Right camera frame size : " << dWidth << " x " << dHeight << endl;
+		success = true;
 	}
+	//Setup Semi Global Block Matching object
 	this->setupDisparity();
 }
 
@@ -83,6 +88,9 @@ void StereoPair::setupRectification(string calibrationFile, string calOutput)
 		initUndistortRectifyMap(cameraMatrix0, distCoeffs0, R1, P1, imageSize, CV_16SC2, rmap[0][0], rmap[0][1]);
 		initUndistortRectifyMap(cameraMatrix1, distCoeffs1, R2, P2, imageSize, CV_16SC2, rmap[1][0], rmap[1][1]);
 
+		//"dispToDepthMat" is used to convert disparity images into depth maps.
+		dispToDepthMat = Q;
+
 		// Save the rectification mappings
 		recti.K = P1;
 		recti.B = P2.at<double>(0, 3) / P2.at<double>(0, 0);
@@ -90,7 +98,7 @@ void StereoPair::setupRectification(string calibrationFile, string calOutput)
 		for(int j=0; j<2; j++)
 			recti.rmap[i][j] = rmap[i][j];
 
-		//write new calibration
+		//write new calibration if a valid directory is provided
 		if(!calOutput.empty()){
 			FileStorage fout(calOutput, FileStorage::WRITE);
 			fout << "K" << recti.K << "T" << -recti.B;
@@ -101,31 +109,31 @@ void StereoPair::setupRectification(string calibrationFile, string calOutput)
 
 
 
-Mat StereoPair::rectifyImage(const Mat& I, const Rectification& recti, bool left)
+Mat StereoPair::rectifyImage(const Mat& unrectifiedImage, const Rectification& recti, bool left)
 {
-	Mat O;
+	Mat rectifiedImage;
 
 	if(left)
-		remap(I, O, recti.rmap[0][0], recti.rmap[0][1], CV_INTER_LINEAR, BORDER_TRANSPARENT);
+		remap(unrectifiedImage, rectifiedImage, recti.rmap[0][0], recti.rmap[0][1], CV_INTER_LINEAR, BORDER_TRANSPARENT);
 	else
-		remap(I, O, recti.rmap[1][0], recti.rmap[1][1], CV_INTER_LINEAR, BORDER_TRANSPARENT);
+		remap(unrectifiedImage, rectifiedImage, recti.rmap[1][0], recti.rmap[1][1], CV_INTER_LINEAR, BORDER_TRANSPARENT);
 
-	return O;
+	return rectifiedImage;
 }
 
 void StereoPair::RectificationViewer()
 {
 	Mat IL = imgl;
 	Mat IR = imgr;
+
 	// set both images horizontally adjacent
 	Mat LR(IL.rows, IL.cols+IR.cols, IL.type());
-	Mat left_roi(LR, Rect(0, 0, IL.cols, IL.rows)); // Copy constructor
+
+	//Draw a rectangle around each image
+	Mat left_roi(LR, Rect(0, 0, IL.cols, IL.rows));
 	IL.copyTo(left_roi);
 	Mat right_roi(LR, Rect(IL.cols, 0, IR.cols, IR.rows)); // Copy constructor
 	IR.copyTo(right_roi);
-
-	//Mat LR2;
-	//cvtColor(LR, LR2, CV_GRAY2RGB);
 
 	//draw lines
 	for(int h=0; h<LR.rows; h+=20)
@@ -147,6 +155,7 @@ bool StereoPair::updateRectifiedPair()
 	if (!camL.read(newFrameL)) return false;
 	if (!camR.read(newFrameR)) return false;
 
+	//Convert to grey scale (this won't be needed with the new camera as it already is grey scale)
 	cvtColor(newFrameL,newFrameL,CV_RGB2GRAY);
 	cvtColor(newFrameR,newFrameR,CV_RGB2GRAY);
 
@@ -154,83 +163,36 @@ bool StereoPair::updateRectifiedPair()
 	imgl = rectifyImage(newFrameL, recti, true);
 	imgr = rectifyImage(newFrameR, recti, false);
 
-
-	/*Size size(320, 240);
-	resize(imgl, imgl, size);
-	resize(imgr, imgr, size);
-*/
 	return true;
 }
 
-void StereoPair::updateDepthMap()
-{
-	sgbm(imgl, imgr, dmp);
+void StereoPair::updateDisparityImg(){
+	sgbm(imgl, imgr, dsp);
+}
+
+void StereoPair::updateImg3D(){
+	reprojectImageTo3D(dsp, img3D, dispToDepthMat);
 }
 
 Mat StereoPair::getMainImg(){
 	return imgl;
 }
 
-Mat StereoPair::getDepthMap(){
-	return dmp;
+Mat StereoPair::getDisparityImg(){
+	return dsp;
 }
 
-Mat StereoPair::getDepthMapNormalised(){
-	Mat dmpn;
-	normalize(dmp, dmpn, 0, 255, CV_MINMAX, CV_8U);
-	return dmpn;
+Mat StereoPair::getDisparityImgNormalised(){
+	Mat dspn;
+	normalize(dsp, dspn, 0, 255, CV_MINMAX, CV_8U);
+	return dspn;
 }
 
-bool StereoPair::pixelToPoint(Mat& _dmp, Point2f pixel, Point3d& point){
-	double depth = _dmp.at<uchar>(pixel);
-	if(depth == 0)return false;
-	double z = depth*depthCoef;
-	double x = pixel.x * depth * scaleCoef;
-	double y = pixel.y * depth * scaleCoef;
-	point.x = x;
-	point.y = y;
-	point.z = z;
-	return true;
+Mat StereoPair::getImg3D(){
+	return img3D;
 }
 
-void StereoPair::calibrateCoefs(){
-	namedWindow("Calibrate coefficients", CV_WINDOW_AUTOSIZE);
-	while(1){
-		this->updateRectifiedPair();
-		this->updateDepthMap();
-		int closest;
-		/*for(int x=0; x<dmp.cols; x++){
-			for(int y=0; y<dmp.rows; y++){
-				Scalar cd = dmp.at<uchar>(Point(x, y));
-				int currentDepth = cd.val[0];
-				closest = currentDepth>closest?currentDepth:closest;
-			}
-		}
-
-		cvtColor(dmp, dmp, CV_GRAY2RGB);
-		Vec3d color = Vec3d(60, 100, 200);
-		for(int x=0; x<dmp.cols; x++){
-			for(int y=0; y<dmp.rows; y++){
-				Scalar cd = dmp.at<uchar>(Point(x, y));
-				int currentDepth = cd.val[0];
-				if(currentDepth == closest)
-					dmp.at<Vec3b>(Point(x, y)) = color;
-			}
-		}*/
-		imshow("Calibrate coefficients", dmp);
-				// Wait for key press
-		int keyPressed = waitKey(30);
-		if( keyPressed== 27)
-		{
-			cout << "ESC key is pressed by user" << endl;
-			destroyWindow("Calibrate coefficients");
-			break;
-		}
-	}
-}
-
-
-void StereoPair::saveCalibrationFrames(string outputFolder)
+void StereoPair::saveUncalibratedStereoImages(string outputFolder)
 {
 	// Create visualization windows
 	namedWindow("Left camera", CV_WINDOW_AUTOSIZE);
@@ -238,15 +200,22 @@ void StereoPair::saveCalibrationFrames(string outputFolder)
 
 	int frameId = 0;
 	Mat newFrameL, newFrameR;
-    while(1)
+
+	cout << "*************************************************************" << endl;
+ 	cout << "Saving uncalibrated images, press 's' to save or ESC to exit." << endl;
+
+	while(1)
     {
-		// Grab stereo images
+		/*
+		 * Getting stereo images.
+		 * Using grab() and retrieve() instead of read() is faster because grab gets the images but doesn't do any decompression.
+		 * When both images have been download the retrieve() method is used to uncompress them.
+		 * This method is preferred for unsynchronized cameras.
+		 */
     	if (!camL.grab() || !camR.grab()){
     		cout << "Error getting frames from camera" << endl << "Try reducing FPS or frame size" << endl;
     		break;
     	}
-
-		// Retrieve images
     	camL.retrieve(newFrameL);
     	camR.retrieve(newFrameR);
 
@@ -255,9 +224,9 @@ void StereoPair::saveCalibrationFrames(string outputFolder)
     	imshow("Right camera", newFrameR);
 
 		// Wait for key press
-		int keyPressed = waitKey(30);		// TODO: Be carefull here. You are waiting 30ms
+		int keyPressed = waitKey(0);
 
-		// Save the images if required
+		// Save the images if 's' or 'S' key has been pressed
 		if( keyPressed==83 || keyPressed==115)
 		{
 			// Create the file names for saving the images
@@ -275,11 +244,11 @@ void StereoPair::saveCalibrationFrames(string outputFolder)
 				fprintf(stderr, "Exception converting image to PNG format: %s \n", ex.what());
 			}
 
-			// Update the frame id
+			// Increment the frame id
 			frameId++;
 		}
 
-		// Exit when esc key is pressed
+		// Exit if 'esc' key is pressed
         if( keyPressed==27)
 		{
 			cout << "ESC key is pressed by user" << endl;
@@ -294,7 +263,7 @@ void StereoPair::saveCalibrationFrames(string outputFolder)
     printf("Saved %i calibration images \n", frameId);
 }
 
-void StereoPair::saveCalibratedImages(string outputFolder){
+void StereoPair::saveCalibratedStereoImages(string outputFolder){
 	namedWindow("Left camera", CV_WINDOW_AUTOSIZE);
 	namedWindow("Right camera", CV_WINDOW_AUTOSIZE);
 
@@ -328,14 +297,12 @@ void StereoPair::saveCalibratedImages(string outputFolder){
 		}
 
 		// Exit when esc key is pressed
-        if( keyPressed== 27)
-		{
-			cout << "ESC key is pressed by user" << endl;
-			break;
-		}
+        if( keyPressed== 27) break;
 
     }
+
+    //Close windows and show how many image pairs where saved
     destroyWindow("Left camera");
     destroyWindow("Right camera");
-    printf("Saved %i calibration images \n", frameId);
+    printf("\nESC key pressed. Saved %i calibration images \n", frameId);
 }
