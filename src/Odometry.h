@@ -14,6 +14,7 @@
 #include "opencv2/opencv.hpp"
 #include <stdio.h>
 #include "cv.h"
+#include <cmath>
 #include "StereoPair.h"
 
 #ifndef ODOMETRY_H_
@@ -38,55 +39,47 @@ class Odometry {
 	//Atributes
 
 		//Data storage
-	vector<ImgData> imgDataQueue;	//Storage for images and their corresponding key points and descriptors.
-	vector<pointAndFeat> pointCloud;//Storage for verified points once they are flushed from the pointFeed
-	vector<Point3d> vPointFeed; 	//Every point in vPointFeed has its corresponding descriptor at vDescriptorFeed with matching index/row
-	Mat uDescriptorFeed;
-	Mat vDescriptorFeed;
-	vector<int> sightings;			//Sighting counter for unverified points.
-	vector<int> unSightings;		//Unsighting counter for unverified points.
-	vector<int> vunSightings;		//Unsighting counter for verified points.
-	Mat position;					//Matrix to store position and rotation of the camera.
-
-		//Parameters and thresholds
-	int sightingsToVerify;			//how many a new key point has to bee detected to become validated.
-	int unSightingsToStore;			//How many times a point has to not be detected to be stored.
-	int unSightingsToDelete;		//How many times an unverified descriptor has to be unseen to be deleted.
+	Mat lastImage;
+	Mat lastDescriptors;
+	vector<Point3f> lastPoints;
 
 		//Tool objects
-	FastFeatureDetector detector;
-	BriefDescriptorExtractor extractor;
-	BFMatcher matcher;
+	Ptr<FeatureDetector> detector;
+	Ptr<DescriptorExtractor> descriptor;
+	Ptr<DescriptorMatcher> matcher;
 	StereoPair camera;
 
-		//Class parameters
-	static int AUTO_REPEAT;
-	static int PROMPT_REPEAT;
+		//Parameters
+	double ransacReprojThreshold = 3; //match filtering threshold for RANSAC
 
 public:
+	//Class parameters
+	static const int AUTO_REPEAT;
+	static const int PROMPT_REPEAT;
+
 	//Constructors and destructors
 	Odometry();
 	Odometry(StereoPair _camera);
 	virtual ~Odometry();
 
-	//Initialization methods
-	bool initOdometry(int numFrames, bool promptRepeat);
-
 	//Functions
-	bool updateQueue(bool showResult);
-	bool processNewFrame(vector<KeyPoint> & kp, Mat & descriptors);
-	void incrementSightningsCounters(vector<DMatch> matches, vector<KeyPoint> keyPoints, Mat depthMap);
-	Mat findCommonDescriptors(Mat desc1, Mat desc2);
-	vector<Point3d> featuresToPoints(Mat img3D, vector<KeyPoint> keyPoints,vector<DMatch> validKeyPoints);
+	bool updateOdometry();
+	bool processNewFrame(Mat& image, vector<KeyPoint> & kp, Mat & descriptors);
+	void matchLeftRight(Mat& imgL, Mat& imgR, vector<KeyPoint>matchedKeypoints, Mat matchedDescriptors,vector<DMatch> matches);
+	vector<DMatch> filteredMatch(vector<KeyPoint> kpL, vector<KeyPoint> kpR, Mat& descL, Mat& descR, bool doCrossCheck);
+	Mat findCommonDescriptors(Mat desc1, Mat desc2, vector<DMatch> & matches);
+
+	//Utilities
+	void showLRMatches();
 };
 
 /*
- * When a new image is received it is matched with the descriptorFeed and increment their sightings.
- * From the validated matches (sightings >= sightningsToVerify) we apply solvePNP to estimate camera position.
- * Knowing the camera position we translate the new unmatched key points and their depth to the reference coordinate system.
- * Then we add the new unmatched points and descriptors to the feed.
- * When a descriptor is not seen, its unSightings count is incremented.
- * If unSightings>=SightingsToStore the point is stored in the pointCloud if it was verified or deleted if it was not.
+ * When a new stereo frame is received, left and right images are matched to find valid key points (which 3D point can be calculated).
+ * The valid key points are matched with the previous frame and separated between known (seen on the last frame) and new (not seen before).
+ * The camera pose is updated with the function solvePNPRANSAC passing the known key points positions on the new frame and their
+ * global 3D position (calculated on the frame on which they where first seen).
+ * The local 3D positions of the new key points are calculated using the disparity value and the "dispToDepthMat" matrix (from the camera object).
+ * The 3D positions are transformed to global coordinates using the updated camera pose.
  */
 
 #endif /* ODOMETRY_H_ */

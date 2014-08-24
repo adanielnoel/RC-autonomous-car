@@ -45,15 +45,16 @@ class StereoPair {
 	Mat				dsp;			// Disparity map (not normalized)
 	Mat				img3D;			// Depth map
 	Mat				dispToDepthMat; //matrix from stereoRectify(..., Q, ...);
+	String			calibrationFile;//File path to the intrinsic and extrinsic parameters
 
 public:
 	//Constructors and destructors
 	StereoPair();			//TODO: default constructor does nothing!
-	StereoPair(int lCamId, int rCamId, int camFPS, bool & success);
+	StereoPair(int lCamId, int rCamId, int camFPS, string _calibrationFile, bool & success);
 	virtual ~StereoPair();
 
 	//Initialization methods
-	void setupRectification(string calibrationFile, string calOutput);
+	void setupRectification();
 	void setupDisparity();
 
 	//Functions
@@ -61,17 +62,28 @@ public:
 	bool updateRectifiedPair();
 	void updateDisparityImg();
 	void updateImg3D();
+	Mat glueTwoImagesHorizontal(Mat Img1, Mat Img2);
+	Mat glueTwoImagesVertical(Mat Img1, Mat Img2);
+
+	//Utilities
+	void saveUncalibratedStereoImages(vector<Mat>& imagesL, vector<Mat>& imagesR, string outputFolder);		//on 's' key press saves stereo images. Useful to get chess board images.
+	void saveCalibratedStereoImages(string outputFolder);		//on 's' key press saves rectified images.
+	void displayImagePairAndDepthMap(bool showImages);
+	void RectificationViewer();									//Shows rectified images side to side with horizontal lines.
+	void calibrate(bool showResult);
 
 	//Get methods
-	Mat getMainImg();
 	Mat getDisparityImg();
 	Mat getImg3D();
 	Mat getDisparityImgNormalised();
 
-	//Utilities
-	void saveUncalibratedStereoImages(string outputFolder);		//on 's' key press saves stereo images. Useful to get chess board images.
-	void saveCalibratedStereoImages(string outputFolder);		//on 's' key press saves rectified images.
-	void RectificationViewer();									//Shows rectified images side to side with horizontal lines.
+	const Mat& getImgr() const {
+		return imgr;
+	}
+
+	const Mat& getImgl() const {
+		return imgl;
+	}
 };
 
 

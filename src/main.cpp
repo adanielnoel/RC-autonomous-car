@@ -6,6 +6,7 @@
 #include "opencv2/contrib/contrib.hpp"
 #include "opencv2/opencv.hpp"
 #include <stdio.h>
+#include <sys/stat.h>
 #include "cv.h"
 #include "StereoPair.h"
 #include "Odometry.h"
@@ -22,14 +23,14 @@ int main(int argc, char* argv[])
 	 *******************************************************************************************************/
 
 	// File and folder paths
-	string outputFolder		= "/home/alejandro/Desktop/";
-	string calibrationFile	= "/home/alejandro/Desktop/Stereo1/calibration_24-Jul-2014.txt";
+	string outputFolder		= "/home/alejandro/Documents/eclipse_workspace/cv_1/Data/";
+	string calibrationFile	= "/home/alejandro/Documents/eclipse_workspace/cv_1/Data/stereo_calibration_parameters.yml";
 	string calOutput		= "/home/alejandro/Desktop/Stereo1/calibrationRectified.txt";
 
 	//Stereo camera parameters
 	int leftCamID = 2;
 	int rightCamID = 1;
-	int frameRate = 10;
+	int frameRate = 0;
 
 	//Odometry parameters
 	int framesToInitOdometry = 4;
@@ -42,17 +43,20 @@ int main(int argc, char* argv[])
 	 * It is important to check if the camera indexes and frame rate are correct.                           *
 	 ********************************************************************************************************/
 	bool initStereoSuccess;
-	StereoPair stereo(leftCamID, rightCamID, frameRate, initStereoSuccess);
+	StereoPair stereo(leftCamID, rightCamID, frameRate, calibrationFile, initStereoSuccess);
 	if(!initStereoSuccess){
 		cout << "\n**********FINNISHED WITH CAMERA INITIALIZATION ERROR*********" << endl;
 		return 1;
 	}
 	//TODO: check if folder path is valid
-	stereo.setupRectification(calibrationFile, "");	// Init rectification. The second parameter is for storing the calibration output. Will be ignored if empty.
 
-	/*Uncomment following lines if you need to save non calibrated frames or calibrated frames to file*/
-	//stereo.saveCalibrationFrames(outputFolder);
-	//stereo.saveCalibratedImages(outputFolder);
+	/*Uncomment following lines to use these useful tools*/
+	//stereo.RectificationViewer();
+	//stereo.calibrate(true);
+	//stereo.saveUncalibratedStereoImages(outputFolder);
+	//stereo.saveCalibratedStereoImages(outputFolder);
+	//stereo.displayImagePairAndDepthMap(false);
+
 
 
 	/*********************************************************************************************************
@@ -66,18 +70,18 @@ int main(int argc, char* argv[])
 	 *********************************************************************************************************/
 
 	Odometry odometry(stereo);
-	odometry.initOdometry(framesToInitOdometry, Odometry::PROMPT_REPEAT); //If init fails to find enough points, it will prompt if you wish to repeat it or abort
 
+	/*Uncomment following lines to use these useful tools*/
+	odometry.showLRMatches();
 
 	/*********************************************************************************************************
 	 * Main loop                                                                                             *
 	 *********************************************************************************************************/
 
 	cout << "press ESC to exit" << endl;
-	bool doLoop = false;
+	bool doLoop = false; //For current tests the main loop is not used
 	while(doLoop){
 		if(stereo.updateRectifiedPair()){ //function returns true if both frames are received correctly
-			odometry.updateQueue(false);
 		}
 
 		//Program stops when user presses ESC key

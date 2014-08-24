@@ -1,3 +1,14 @@
+Vestion 0.2  Many improvements on the stereoCamera and Odometry classes and rethinkered odometry algorithm.
+StereoCamera: added an interactive camera calibration tool and other useful functions.
+	+ void calibrate(bool showResult)
+	+ Mat glueTwoImagesHorizontal(Mat Img1, Mat Img2)
+	+ Mat glueTwoImagesVertical(Mat Img1, Mat Img2)
+Odometry: matching is now crossChecked (optional) and filtered using a RANSAC algorithm to eliminate outliers.
+	+ vector<DMatch> filteredMatch(vector<KeyPoint> kpL, vector<KeyPoint> kpR, Mat& descL, Mat& descR, bool doCrossCheck)
+	+ void showLRMatches()
+	- Many functions an attributes have been eliminated because they belonged to the old algorithm.
+
+-------------------------------------------------------------------
 Version 0.1.2 Code is now carefully commented and there are lots of command line feedback
 --------------------------------------------------------------------
 Version 0.1.1 Added documentation
