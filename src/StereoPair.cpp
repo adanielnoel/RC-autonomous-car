@@ -53,15 +53,15 @@ StereoPair::~StereoPair() {
 
 void StereoPair::setupDisparity(){
 	sgbm = StereoSGBM();
-	sgbm.SADWindowSize = 13;
-	sgbm.numberOfDisparities = 96;
+	sgbm.SADWindowSize = 11;
+	sgbm.numberOfDisparities = 18*16;
 	sgbm.preFilterCap = 27;
 	sgbm.minDisparity = 0;
-	sgbm.uniquenessRatio = 0;
-	sgbm.speckleWindowSize = 30;
+	sgbm.uniquenessRatio = 10;
+	sgbm.speckleWindowSize = 16;
 	sgbm.speckleRange = 60;
 	sgbm.disp12MaxDiff = -80;
-	sgbm.fullDP = true;
+	sgbm.fullDP = false;
 	sgbm.P1 = 8*sgbm.SADWindowSize*sgbm.SADWindowSize;
 	sgbm.P2 = 32*sgbm.SADWindowSize*sgbm.SADWindowSize;
 }
@@ -196,11 +196,29 @@ bool StereoPair::updateRectifiedPair()
 	imgl = rectifyImage(newFrameL, recti, true);
 	imgr = rectifyImage(newFrameR, recti, false);
 
+	/*
+	 * RESIZE INTERPOLATION METHODS
+	 *
+     * INTER_NEAREST - a nearest-neighbor interpolation
+     * INTER_LINEAR - a bilinear interpolation (used by default)
+     * INTER_AREA - resampling using pixel area relation. It may be a preferred method for image decimation, as it gives moire’-free results. But when the image is zoomed, it is similar to the INTER_NEAREST method.
+     * INTER_CUBIC - a bicubic interpolation over 4x4 pixel neighborhood
+     * INTER_LANCZOS4 - a Lanczos interpolation over 8x8 pixel neighborhood
+	 *
+	 */
+	resize(imgl, imgl, Size(), 0.5, 0.5, INTER_CUBIC);
+	resize(imgr, imgr, Size(), 0.5, 0.5, INTER_CUBIC);
+
 	return true;
 }
 
 void StereoPair::updateDisparityImg(){
-	sgbm(imgl, imgr, dsp);
+	Mat rimgl, rimgr;
+	//resize(imgl, rimgl, Size(), 0.5, 0.5, 3);
+	//resize(imgr, rimgr, Size(), 0.5, 0.5, 3);
+	sgbm(rimgl, rimgr, dsp);
+	imgl = rimgl;
+	imgr = rimgr;
 }
 
 void StereoPair::updateImg3D(){
@@ -221,7 +239,7 @@ Mat StereoPair::getImg3D(){
 	return img3D;
 }
 
-void StereoPair::saveUncalibratedStereoImages(vector<Mat>& imagesL, vector<Mat>& imagesR, string outputFolder)
+void StereoPair::saveUncalibratedStereoImages(string outputFolder)
 {
 	// Create visualization windows
 	namedWindow("Uncalibrated stereo images", CV_WINDOW_NORMAL);
@@ -245,9 +263,6 @@ void StereoPair::saveUncalibratedStereoImages(vector<Mat>& imagesL, vector<Mat>&
 		if( keyPressed==83 || keyPressed==115)
 		{
 			cout << "Saving image pairs..." << endl;
-
-			imagesL.push_back(newFrameL);
-			imagesR.push_back(newFrameR);
 
 			if(!outputFolder.empty()){
 				// Create the file names for saving the images
@@ -326,29 +341,25 @@ void StereoPair::saveCalibratedStereoImages(string outputFolder){
     printf("\nESC key pressed. Saved %i calibration images \n", frameId);
 }
 
-void StereoPair::displayImagePairAndDepthMap(bool showImages){
-	namedWindow("Disparity", CV_WINDOW_AUTOSIZE);
-	if(showImages){
-		namedWindow("Left", CV_WINDOW_AUTOSIZE);
-		namedWindow("Right", CV_WINDOW_AUTOSIZE);
-	}
+void StereoPair::displayDisparityMap(bool showImages){
+	namedWindow("Disparity", CV_WINDOW_NORMAL);
 	while(1){
 		this->updateRectifiedPair();
 		this->updateDisparityImg();
-		imshow("Disparity", this->getDisparityImgNormalised());
+		Mat d1, d2, dispNorm = getDisparityImgNormalised();
+
 		if(showImages){
-			imshow("Left", imgl);
-			imshow("Right", imgr);
+			d1 = glueTwoImagesHorizontal(imgl, imgr);
+			d2 = glueTwoImagesHorizontal(d1, dispNorm);
 		}
+		else d2 = dispNorm;
+
+		imshow("Disparity", d2);
 
 		// Exit when esc key is pressed
 		if( waitKey(1) == 27) break;
 	}
 	destroyWindow("Disparity");
-	if(showImages){
-		destroyWindow("Left");
-		destroyWindow("Right");
-	}
 }
 
 void StereoPair::calibrate(bool showResult){
@@ -407,7 +418,7 @@ void StereoPair::calibrate(bool showResult){
                 cvtColor(nimr, nimr,CV_RGB2GRAY);
     			newStereoFrame.push_back(niml);
     			newStereoFrame.push_back(nimr);
-    			cout << "Took a new image pair, " << nimages-i << " to end calibration" << endl;
+    			cout << "Took a new image pair, " << nimages-(i+1) << " to end calibration" << endl;
     			break;
     		}
     		else if(keyPressed==27){

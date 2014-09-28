@@ -24,14 +24,14 @@ using namespace cv;
 using namespace std;
 
 struct ImgData{
-	Mat image;
-	vector<KeyPoint> keyPoints;
-	Mat descriptors;
+	Mat				image;
+	vector<KeyPoint>keyPoints;
+	Mat				descriptors;
 };
 
 struct pointAndFeat{
-	Point3d point;
-	Mat descriptor;
+	Point3d	point;
+	Mat		descriptor;
 };
 
 class Odometry {
@@ -39,46 +39,47 @@ class Odometry {
 	//Atributes
 
 		//Data storage
-	Mat lastImage;
-	Mat lastDescriptors;
-	vector<Point3f> lastPoints;
+	vector<Mat>					img0;
+	vector<vector<KeyPoint> >	kp0;
+	vector<Mat>					desc0;
 
 		//Tool objects
-	Ptr<FeatureDetector> detector;
-	Ptr<DescriptorExtractor> descriptor;
-	Ptr<DescriptorMatcher> matcher;
-	StereoPair camera;
+	Ptr<FeatureDetector>	detector;
+	Ptr<DescriptorExtractor>descriptor;
+	Ptr<DescriptorMatcher>	matcher;
+	StereoPair* 			camera;
 
 		//Parameters
-	double ransacReprojThreshold = 3; //match filtering threshold for RANSAC
+	static const float	MAXIMUM_EPIPOLAR_DIFFERENCE = 5;//Maximum y difference between key points when DO_EPIPOLAR_FILTER is activated.
+	static const bool	DO_CROSS_CHECK = true;			//Enabling cross check ensures that each feature has one only match
+	static const bool	DO_EPIPOLAR_FILTER = true;		//Enables epipolar filter for matching stereo images
 
 public:
-	//Class parameters
-	static const int AUTO_REPEAT;
-	static const int PROMPT_REPEAT;
 
 	//Constructors and destructors
 	Odometry();
-	Odometry(StereoPair _camera);
+	Odometry(StereoPair& _camera);
 	virtual ~Odometry();
 
 	//Functions
-	bool updateOdometry();
-	bool processNewFrame(Mat& image, vector<KeyPoint> & kp, Mat & descriptors);
-	void matchLeftRight(Mat& imgL, Mat& imgR, vector<KeyPoint>matchedKeypoints, Mat matchedDescriptors,vector<DMatch> matches);
-	vector<DMatch> filteredMatch(vector<KeyPoint> kpL, vector<KeyPoint> kpR, Mat& descL, Mat& descR, bool doCrossCheck);
-	Mat findCommonDescriptors(Mat desc1, Mat desc2, vector<DMatch> & matches);
+	bool			updateOdometry();
+	bool			processNewFrame(Mat& IL, Mat& IR, vector<vector<KeyPoint> > & kpts, vector<Mat> descriptors);
+	void			computeFeatures(Mat& img, vector<KeyPoint> & kp, Mat & descriptors);
+	vector<Point3f>	localToGlobalCoords(vector<Point3f> localCoordPoints, Mat T, Mat R);
+	vector<DMatch>	filteredMatch(vector<KeyPoint> kp1, vector<KeyPoint> kp2, Mat& desc1, Mat& desc2, bool doCrossCheck = true, bool doEpipolarFilter = false);
+	Mat				findCommonDescriptors(Mat desc1, Mat desc2, vector<DMatch> & matches);
 
 	//Utilities
 	void showLRMatches();
 };
 
 /*
- * When a new stereo frame is received, left and right images are matched to find valid key points (which 3D point can be calculated).
- * The valid key points are matched with the previous frame and separated between known (seen on the last frame) and new (not seen before).
- * The camera pose is updated with the function solvePNPRANSAC passing the known key points positions on the new frame and their
+ * When a new stereo frame is received, the left image is matched with the last left image to look for known points.
+ * The camera pose is updated using the function solvePNPRANSAC passing the known key points positions on the new frame and their
  * global 3D position (calculated on the frame on which they where first seen).
- * The local 3D positions of the new key points are calculated using the disparity value and the "dispToDepthMat" matrix (from the camera object).
+ * Then the new key points (Those that didn't match) are matched with the right image.
+ * The local 3D positions of the new key points are calculated using the disparity value and the "dispToDepthMat" matrix
+ * (from the camera object).
  * The 3D positions are transformed to global coordinates using the updated camera pose.
  */
 

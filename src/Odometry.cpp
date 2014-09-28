@@ -7,10 +7,12 @@
 
 #include "Odometry.h"
 
-const int Odometry::AUTO_REPEAT = 0;
-const int Odometry::PROMPT_REPEAT = 1;
+Odometry::Odometry(){
+	camera = new StereoPair();
+}
 
-Odometry::Odometry(StereoPair _camera){
+Odometry::Odometry(StereoPair& _camera){
+
 	/*
 	 * Create the feature detector. Types:
 	 *
@@ -51,19 +53,103 @@ Odometry::Odometry(StereoPair _camera){
 	 */
 	matcher = DescriptorMatcher::create("BruteForce-Hamming(2)");
 
-	camera = _camera;
+	camera = &_camera;
+}
+
+Odometry::~Odometry(){
+
 }
 
 bool Odometry::updateOdometry(){
 	//TODO: explained at the end of the header file
+	camera->updateRectifiedPair();
+	Mat IL = camera->getImgl();
+	Mat IR = camera->getImgr();
+	vector<vector<KeyPoint> > newKeyPoints;
+	vector<Mat> newDescriptors;
+
+	//////////Get valid key points and descriptors (those which 3D coordinates can be calculated)///////
+	bool enoughKeypoints = processNewFrame(IL, IR, newKeyPoints, newDescriptors);
+	//Don't proceed is there aren't enough key points (less than MINIMUM_POINTS_FOR_PNP)
+	if(!enoughKeypoints) return false;
+
+
+	//////////Match with previous frame////////////
+//	vector<DMatch> survivingMatches = filteredMatch(newKeyPoints, kp0, newDescriptors, desc0, DO_CROSS_CHECK);
+	//Don't proceed is there aren't enough matches
+//	if((int)survivingMatches.size() < 3) return false;
+
+	/* code from http://stackoverflow.com/questions/22441782/vtk-camera-pose-from-opencvs-estimated-pose-from-solvepnp
+  cv::Mat op(model_points);
+
+  cv::Mat rvec;
+  cv::Mat tvec;
+
+  // op = the 3D coordinates of the markers in the scene
+  // ip = the 2D coordinates of the markers in the image
+  // camera = the intrinsic camera parameters (for calibration)
+  // dists = the camera distortion coefficients
+  cv::solvePnP(op, *ip, camera, dists, rvec, tvec, false, CV_ITERATIVE);
+
+  cv::Mat rotM;
+  cv::Rodrigues(rvec, rotM);
+
+  rotM = rotM.t();
+
+  cv::Mat rtvec = -(rotM*tvec);
+	 */
+
 	return true;
 }
 
-bool Odometry::processNewFrame(Mat& image, vector<KeyPoint> & kp, Mat & descriptors){
-	detector->detect(image, kp);
-	descriptor->compute(image, kp, descriptors);
+vector<Point3f> Odometry::localToGlobalCoords(vector<Point3f> localCoordPoints, Mat T, Mat R){
+	return localCoordPoints;
+}
 
-	return descriptors.rows; 					//If no descriptors are found, return false
+void Odometry::computeFeatures(Mat& img, vector<KeyPoint> & kp, Mat & descriptors){
+	detector->detect(img, kp);
+	descriptor->compute(img, kp, descriptors);
+}
+
+bool Odometry::processNewFrame(Mat& IL, Mat& IR, vector<vector<KeyPoint> > & kpts, vector<Mat> descriptors){
+
+	vector<KeyPoint> kpL1, kpR1;
+	Mat	descL1, descR1;
+
+	computeFeatures(IL, kpL1, descL1);
+	computeFeatures(IR, kpR1, descR1);
+
+	if(kpR1.size() == 0 || kpR1.size() == 0){
+		return false;
+	}
+	///////////Match left and right image////////////////
+	vector<DMatch> matches = filteredMatch(kpL1, kpR1, descL1, descR1, DO_CROSS_CHECK);
+
+	vector<KeyPoint> matchedKPL1, matchedKPR1;
+	Mat matchedDescL1(32, matches.size(), descL1.type());
+	Mat matchedDescR1(32, matches.size(), descR1.type());
+	for(unsigned int i = 0; i < matches.size(); i++){
+		matchedKPL1.push_back(kpL1.at(matches.at(i).queryIdx));
+		matchedKPR1.push_back(kpR1.at(matches.at(i).trainIdx));
+		matchedDescL1.row(i) = (matchedDescL1.row(matches.at(i).queryIdx));
+		matchedDescR1.row(i) = (matchedDescR1.row(matches.at(i).trainIdx));
+	}
+
+	/*//////////////3D points from stereo matches///////////////
+	Mat Q = camera->getDispToDepthMat();
+	float d = matches.at(i).distance;
+	float X = pt.x * Q.at<double>(0, 0) + Q.at<double>(0, 3);
+	float Y = pt.y * Q.at<double>(1, 1) + Q.at<double>(1, 3);
+	float Z = Q.at<double>(2, 3);
+	float W = d * Q.at<double>(3, 2) + Q.at<double>(3, 3);
+	X /= W;
+	Y /= W;
+	Z /= W;
+
+	Point3f pt3(X, Y, Z);
+	///////////////////////////////////////////////////////////*/
+
+	return true;
 }
 
 Mat Odometry::findCommonDescriptors(Mat queryDesc, Mat trainDesc, vector<DMatch> & matches){	//commonDesc picks the matching descriptors from queryDesc
@@ -78,16 +164,14 @@ Mat Odometry::findCommonDescriptors(Mat queryDesc, Mat trainDesc, vector<DMatch>
 
 
 
-vector<DMatch> Odometry::filteredMatch(vector<KeyPoint> kpL, vector<KeyPoint> kpR, Mat& descL, Mat& descR, bool doCrossCheck){
-
-    vector<DMatch> FMatches, filteredMatches;
-
+vector<DMatch> Odometry::filteredMatch(vector<KeyPoint> kp1, vector<KeyPoint> kp2, Mat& desc1, Mat& desc2, bool doCrossCheck, bool doEpipolarFilter){
+    vector<DMatch> FMatches;
     if(doCrossCheck){
 		int knn = 1;
 		FMatches.clear();
 	    vector<vector<DMatch> > matches12, matches21;
-	    matcher->knnMatch( descL, descR, matches12, knn );
-	    matcher->knnMatch( descR, descL, matches21, knn );
+	    matcher->knnMatch( desc1, desc2, matches12, knn );
+	    matcher->knnMatch( desc2, desc1, matches21, knn );
 	    for( size_t m = 0; m < matches12.size(); m++ )
 	    {
 	        bool findCrossCheck = false;
@@ -110,48 +194,10 @@ vector<DMatch> Odometry::filteredMatch(vector<KeyPoint> kpL, vector<KeyPoint> kp
 	    }
 	}
 	else{
-		matcher->match(descL, descR, FMatches);
+		matcher->match(desc1, desc2, FMatches);
 	}
 
-    Mat H_LR;
-
-    vector<int> queryIdxs( FMatches.size() ), trainIdxs( FMatches.size() );
-    for( size_t i = 0; i < FMatches.size(); i++ )
-    {
-        queryIdxs[i] = FMatches[i].queryIdx;
-        trainIdxs[i] = FMatches[i].trainIdx;
-    }
-
-    if( ransacReprojThreshold >= 0 )
-    {
-        cout << "< Computing homography (RANSAC)..." << endl;
-        vector<Point2f> points1; KeyPoint::convert(kpL, points1, queryIdxs);
-        vector<Point2f> points2; KeyPoint::convert(kpR, points2, trainIdxs);
-        H_LR = findHomography( Mat(points1), Mat(points2), CV_RANSAC, ransacReprojThreshold );
-        cout << ">" << endl;
-    }
-
-    Mat drawImg1;
-    Mat drawImg2;
-    if( !H_LR.empty() ) // filter outliers
-    {
-        vector<char> matchesMask( FMatches.size(), 0 ); //init with filteredMatches.size and all values to 0
-        vector<Point2f> points1; KeyPoint::convert(kpL, points1, queryIdxs);
-        vector<Point2f> points2; KeyPoint::convert(kpR, points2, trainIdxs);
-        Mat points1t; perspectiveTransform(Mat(points1), points1t, H_LR);
-
-        double maxInlierDist = ransacReprojThreshold < 0 ? 3 : ransacReprojThreshold;
-        for( size_t i1 = 0; i1 < points1.size(); i1++ )
-        {
-            if( norm(points2[i1] - points1t.at<Point2f>((int)i1,0)) <= maxInlierDist ) // inlier
-                matchesMask[i1] = 1;
-        }
-
-        for(unsigned int i=0; i<FMatches.size(); i++){
-        	if(matchesMask.at(i) != 0) filteredMatches.push_back(FMatches[i]);
-        }
-    }
-    return filteredMatches;
+    return FMatches;
 }
 
 
@@ -167,24 +213,23 @@ void Odometry::showLRMatches(){
     Mat drawImg2; //For own drawing function
 
 	while(1){
-		camera.updateRectifiedPair();
-		Mat imgL = camera.getImgl();
-		Mat imgR = camera.getImgr();
+		camera->updateRectifiedPair();
+		Mat imgL = camera->getImgl();
+		Mat imgR = camera->getImgr();
 		vector<KeyPoint> kpL;
 		vector<KeyPoint> kpR;
 		Mat descL;
 		Mat descR;
 		vector<DMatch> filteredMatches;
 
-		this->processNewFrame(imgL, kpL, descL);
-		this->processNewFrame(imgR, kpR, descR);
+		computeFeatures(imgL, kpL, descL);
+		computeFeatures(imgR, kpR, descR);
 
-		if(descL.rows == 0 || descR.rows == 0) continue;
+		if(kpL.empty() || kpR.empty()) continue;
 
-		bool doCrossCheck = true; //Enabling cross check ensures that each feature has one only match
-		filteredMatches = this->filteredMatch(kpL, kpR, descL, descR, doCrossCheck);
+		filteredMatches = filteredMatch(kpL, kpR, descL, descR, DO_CROSS_CHECK, true);
 
-		if(filteredMatches.size() <= 4) continue;
+		if(filteredMatches.empty()) continue;
 
         //drawMatches( imgL, kpL, imgR, kpR, filteredMatches, drawImg1, Scalar(0, 255, 0), Scalar(255, 0, 0));
 
@@ -193,6 +238,7 @@ void Odometry::showLRMatches(){
 	    drawImg2 = imgL.clone();
         cvtColor(drawImg2, drawImg2, CV_GRAY2RGB);
 	    cout << "Own match drawing" << endl;
+	    cout << "fltrdmatchs: " << filteredMatches.size() << endl;
 	    for(unsigned int i=0; i<filteredMatches.size(); i++){
 	    	Point2f point1 = kpL[filteredMatches[i].queryIdx].pt;
 	    	Point2f point2 = kpR[filteredMatches[i].trainIdx].pt;
@@ -206,11 +252,11 @@ void Odometry::showLRMatches(){
 
 		///////////////////////////////////////////////////////////////
 
-		namedWindow("Stereo matches", CV_WINDOW_AUTOSIZE);
+		namedWindow("Stereo matches", CV_WINDOW_NORMAL);
 
 		imshow("Stereo matches", drawImg2);
 
-		int keyPressed = waitKey(0);
+		int keyPressed = waitKey(1);
 
 		// Exit when esc key is pressed
         if( keyPressed== 27) break;

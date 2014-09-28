@@ -66,9 +66,9 @@ public:
 	Mat glueTwoImagesVertical(Mat Img1, Mat Img2);
 
 	//Utilities
-	void saveUncalibratedStereoImages(vector<Mat>& imagesL, vector<Mat>& imagesR, string outputFolder);		//on 's' key press saves stereo images. Useful to get chess board images.
+	void saveUncalibratedStereoImages(string outputFolder);		//on 's' key press saves stereo images. Useful to get chess board images.
 	void saveCalibratedStereoImages(string outputFolder);		//on 's' key press saves rectified images.
-	void displayImagePairAndDepthMap(bool showImages);
+	void displayDisparityMap(bool showImages = false);
 	void RectificationViewer();									//Shows rectified images side to side with horizontal lines.
 	void calibrate(bool showResult);
 
@@ -83,6 +83,10 @@ public:
 
 	const Mat& getImgl() const {
 		return imgl;
+	}
+
+	const Mat& getDispToDepthMat() const {
+		return dispToDepthMat;
 	}
 };
 
