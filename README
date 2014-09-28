@@ -1,3 +1,5 @@
+Version 0.2.3 Added PathPlaning, Simulator and ObstacleScenario classes. Finnished simulator and started path planing.
+---------------------------------------------------------------------
 Version 0.2  Many improvements on the StereoCamera and Odometry classes and rethinkered odometry algorithm.
 StereoCamera: added an interactive camera calibration tool and other useful functions.
 	+ void calibrate(bool showResult)
