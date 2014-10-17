@@ -117,6 +117,7 @@ Mat StereoPair::rectifyImage(const Mat& unrectifiedImage, const Rectification& r
 	else
 		remap(unrectifiedImage, rectifiedImage, recti.rmap[1][0], recti.rmap[1][1], CV_INTER_LINEAR, BORDER_TRANSPARENT);
 
+//	rectifiedImage = unrectifiedImage;
 	return rectifiedImage;
 }
 
@@ -144,10 +145,11 @@ Mat StereoPair::glueTwoImagesVertical(Mat Img1, Mat Img2){
 	return LR;
 }
 
-void StereoPair::RectificationViewer()
+void StereoPair::RectificationViewer(string outputFolder)
 {
 	cout << "Showing rectification" << endl;
 	namedWindow("Rectification", CV_WINDOW_AUTOSIZE);
+	int frameId = 0;
 	while(1){
 		this->updateRectifiedPair();
 		Mat IL, IR;
@@ -170,6 +172,28 @@ void StereoPair::RectificationViewer()
 
 		int keyPressed = waitKey(20);
 
+		if( keyPressed==83 || keyPressed==115)
+		{
+			cout << "Saving image pairs..." << endl;
+
+			if(!outputFolder.empty()){
+				// Create the file names for saving the images
+				char fileName[256];
+				char fileName2[256];
+				sprintf(fileName, "%sRectified_LR_%d.png", outputFolder.c_str(), frameId);
+
+				// Write the images
+				try {
+					imwrite(fileName, LR);
+				}
+				catch (runtime_error& ex) {
+					fprintf(stderr, "Exception converting image to PNG format: %s \n", ex.what());
+				}
+			}
+
+			// Increment the frame id
+			frameId++;
+		}
 		// Exit if 'esc' key is pressed
         if( keyPressed==27)
 		{
@@ -206,19 +230,20 @@ bool StereoPair::updateRectifiedPair()
      * INTER_LANCZOS4 - a Lanczos interpolation over 8x8 pixel neighborhood
 	 *
 	 */
+	/*RESIZE IMAGE FOR TESTING DIFFERENT RESOLUTIONS
 	resize(imgl, imgl, Size(), 0.5, 0.5, INTER_CUBIC);
 	resize(imgr, imgr, Size(), 0.5, 0.5, INTER_CUBIC);
+	 */
 
 	return true;
 }
 
-void StereoPair::updateDisparityImg(){
+void StereoPair::updateDisparityImg(float scaleFactor){
+
 	Mat rimgl, rimgr;
-	//resize(imgl, rimgl, Size(), 0.5, 0.5, 3);
-	//resize(imgr, rimgr, Size(), 0.5, 0.5, 3);
+	resize(imgl, rimgl, Size(), scaleFactor, scaleFactor, 3);
+	resize(imgr, rimgr, Size(), scaleFactor, scaleFactor, 3);
 	sgbm(rimgl, rimgr, dsp);
-	imgl = rimgl;
-	imgr = rimgr;
 }
 
 void StereoPair::updateImg3D(){
@@ -341,11 +366,14 @@ void StereoPair::saveCalibratedStereoImages(string outputFolder){
     printf("\nESC key pressed. Saved %i calibration images \n", frameId);
 }
 
-void StereoPair::displayDisparityMap(bool showImages){
+void StereoPair::displayDisparityMap(bool showImages, string outputFolder){
 	namedWindow("Disparity", CV_WINDOW_NORMAL);
+	float scaleFactor = 0.5;
+	int whiteThreshold = 200;
+	int frameID;
 	while(1){
 		this->updateRectifiedPair();
-		this->updateDisparityImg();
+		this->updateDisparityImg(scaleFactor);
 		Mat d1, d2, dispNorm = getDisparityImgNormalised();
 
 		if(showImages){
@@ -353,16 +381,44 @@ void StereoPair::displayDisparityMap(bool showImages){
 			d2 = glueTwoImagesHorizontal(d1, dispNorm);
 		}
 		else d2 = dispNorm;
+        for( int i = 0; i < d2.rows; ++i){
+            for( int j = 0; j < d2.cols; ++j ){
+            	Scalar intensity = d2.at<uchar>(Point(j, i));
+            	if(intensity.val[0] > whiteThreshold){
+            		d2.at<uchar>(Point(j, i)) = 0;
+            	}
+            }
+    	}
+		//cvtColor(d2, d2, CV_GRAY2RGB );
+		//cvtColor(d2, d2, CV_BGR2HSV );
 
 		imshow("Disparity", d2);
 
+		// Wait for key press
+		int keyPressed = waitKey(20);
+
+		// Save the images if required
+		if( (keyPressed== 83 || keyPressed==115) && !outputFolder.empty())
+		{
+			char fileName[256];
+			sprintf(fileName, "%sdepthMap_%d.png", outputFolder.c_str(), frameID);
+
+			try {
+				imwrite(fileName, d2);
+			}
+			catch (runtime_error& ex) {
+				fprintf(stderr, "Exception converting image to PNG format: %s \n", ex.what());
+			}
+			frameID++;
+		}
+
 		// Exit when esc key is pressed
-		if( waitKey(1) == 27) break;
+        if( keyPressed== 27) break;
 	}
 	destroyWindow("Disparity");
 }
 
-void StereoPair::calibrate(bool showResult){
+void StereoPair::calibrate(bool showResult, string outputFolder){
 
 	///////////INITIAL PARAMETERS//////////////
 	Size boardSize = Size(9, 6);	//Inner board corners
@@ -380,11 +436,13 @@ void StereoPair::calibrate(bool showResult){
     vector<Mat> goodImages;			//Vector to store image pairs with calibration pattern correctly detected
 
 	// Create visualization windows
+    Mat frameLR;
+    Mat cornerLR;
 	namedWindow("Live calibration view", CV_WINDOW_NORMAL);
 	namedWindow("Corners", CV_WINDOW_NORMAL);
 	Size WindowResize;
 
-	int i, j, k;
+	int i, j, k, frameID;
 	/*
 	 * i: new image pair
 	 * j: number of good image pairs
@@ -395,24 +453,23 @@ void StereoPair::calibrate(bool showResult){
     {
     	vector<Mat> newStereoFrame;
     	Mat cimg1, cimg2;	//Corner images
-
     	///////////LIVE CALIBRATION WINDOW//////////////
     	while(1){
-    		Mat niml, nimr, LR;
+    		Mat niml, nimr;
         	camL.read(niml);
         	camR.read(nimr);
 
-        	LR = glueTwoImagesHorizontal(niml, nimr);
+        	frameLR = glueTwoImagesHorizontal(niml, nimr);
         	float LiveViewScale = 0.7;
-        	WindowResize = Size(LR.cols*LiveViewScale, LR.rows*LiveViewScale);
-        	resize(LR, LR, WindowResize);
+        	WindowResize = Size(frameLR.cols*LiveViewScale, frameLR.rows*LiveViewScale);
+        	resize(frameLR, frameLR, WindowResize);
     		// Show images
-        	imshow("Live calibration view", LR);
+        	imshow("Live calibration view", frameLR);
     		// Wait for key press
     		int keyPressed = waitKey(20);
 
-    		// Save the images if 's' or 'S' key has been pressed
-    		if( keyPressed==83 || keyPressed==115)
+    		// Take images if 'n' or 'N' keys have been pressed
+    		if( keyPressed==78 || keyPressed==110)
     		{
                 cvtColor(niml, niml,CV_RGB2GRAY);
                 cvtColor(nimr, nimr,CV_RGB2GRAY);
@@ -420,6 +477,29 @@ void StereoPair::calibrate(bool showResult){
     			newStereoFrame.push_back(nimr);
     			cout << "Took a new image pair, " << nimages-(i+1) << " to end calibration" << endl;
     			break;
+    		}
+    		// Save the images if required
+    		if((keyPressed== 83 || keyPressed==115) && j>0)
+    		{
+    			cout << "Saving image pairs..." << endl;
+
+    			if(!outputFolder.empty()){
+    				// Create the file names for saving the images
+    				char fileName[256];
+    				char fileName2[256];
+    				sprintf(fileName, "%sCam0_%d.png", outputFolder.c_str(), frameID);
+    				sprintf(fileName2, "%sCam1_%d.png", outputFolder.c_str(), frameID);
+
+    				// Write the images
+    				try {
+    					imwrite(fileName, frameLR);
+    					imwrite(fileName2, cornerLR);
+    				}
+    				catch (runtime_error& ex) {
+    					fprintf(stderr, "Exception converting image to PNG format: %s \n", ex.what());
+    				}
+    			}
+    			frameID++;
     		}
     		else if(keyPressed==27){
     			destroyWindow("Live calibration view");
@@ -485,9 +565,9 @@ void StereoPair::calibrate(bool showResult){
         }
 
         /////////////Show corner images//////////////////
-        Mat LRC = glueTwoImagesHorizontal(cimg1, cimg2);
-        resize(LRC, LRC, WindowResize);
-        imshow("Corners", LRC);
+        cornerLR = glueTwoImagesHorizontal(cimg1, cimg2);
+        resize(cornerLR, cornerLR, WindowResize);
+        imshow("Corners", cornerLR);
         /////////////////////////////////////////////////
 
         //////ADD STEREO PAIR TO "goodImages" IF THE CHESSBOARD CORNERS WHERE FOUND ON BOTH IMAGES//////

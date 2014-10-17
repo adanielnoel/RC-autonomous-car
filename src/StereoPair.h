@@ -60,7 +60,7 @@ public:
 	//Functions
 	Mat rectifyImage(const Mat& unrectifiedImage, const Rectification& recti, bool left);
 	bool updateRectifiedPair();
-	void updateDisparityImg();
+	void updateDisparityImg(float scaleFactor);
 	void updateImg3D();
 	Mat glueTwoImagesHorizontal(Mat Img1, Mat Img2);
 	Mat glueTwoImagesVertical(Mat Img1, Mat Img2);
@@ -68,9 +68,9 @@ public:
 	//Utilities
 	void saveUncalibratedStereoImages(string outputFolder);		//on 's' key press saves stereo images. Useful to get chess board images.
 	void saveCalibratedStereoImages(string outputFolder);		//on 's' key press saves rectified images.
-	void displayDisparityMap(bool showImages = false);
-	void RectificationViewer();									//Shows rectified images side to side with horizontal lines.
-	void calibrate(bool showResult);
+	void displayDisparityMap(bool showImages = false, string outputFolder = "");
+	void RectificationViewer(string outputFolder = "");			//Shows rectified images side to side with horizontal lines.
+	void calibrate(bool showResult, string outputFolder = "");	//Calibrate camera intrinsics and extrinsics
 
 	//Get methods
 	Mat getDisparityImg();

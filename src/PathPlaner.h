@@ -29,7 +29,8 @@ class PathPlaner {
 public:
 	PathPlaner();
 	virtual ~PathPlaner();
-	bool findPath(ObstacleScenario scenario, float targetDirection);
+	bool findPath(ObstacleScenario scenario, Point2i initialLocation, Point2i targetLocation);
+	Point expandRange();
 };
 
 #endif /* PATHPLANER_H_ */

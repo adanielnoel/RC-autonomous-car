@@ -26,54 +26,54 @@ int main(int argc, char* argv[])
 	 *******************************************************************************************************/
 
 	// File and folder paths
-	path outputFolder		= "/home/alejandro/Documents/eclipse_workspace/cv_1/Data/";
-	path calibrationFile	= "/home/alejandro/Documents/eclipse_workspace/cv_1/Data/stereo_calibration_parameters.yml";
-
-	//Stereo camera parameters
-	int leftCamID = 2;
-	int rightCamID = 1;
-	int frameRate = 20;
+	path OUTPUT_FOLDER		= "/home/alejandro/Documents/eclipse_workspace/cv_1/Data/";
+	path CALIBRATION_FILE	= "/home/alejandro/Documents/eclipse_workspace/cv_1/Data/stereo_calibration_parameters.yml";
 
 	//Main options
-	bool doLoop = false; //This enables/disables the main loop
+	bool DO_LOOP = false; //This enables/disables the main loop
+
+	//Stereo camera parameters
+	int STEREOCAM_LEFT_ID = 2;
+	int STEREOCAM_RIGHT_ID = 1;
+	int STEREOCAM_FRAME_RATE = 20;
 
 	//Stereo camera options
-	bool init_stereo_camera = false;
-	bool calibrate_camera = false;
-	bool show_rectification = false;
-	bool save_uncalibrated_stereo_pairs = false;
-	bool save_calibrated_stereo_pairs = false;
-	bool show_disparity_map = false;
+	bool STEREOCAM_INIT = false;
+	bool STEREOCAM_CALIBRATE = false;
+	bool STEREOCAM_SHOW_RECTIFICATION = false;
+	bool STEREOCAM_SAVE_UNCALIBRATED_PAIRS = false;
+	bool STEREOCAM_SAVE_CALIBRATED_PAIRS = false;
+	bool STEREOCAM_SHOW_DISPARITY_MAP = false;
 
 	//Odometry options
-	bool init_odometry = false;
-	bool show_Left_Right_matches = true;
+	bool ODOMETRY_INIT = false;
+	bool ODOMETRY_SHOW_MATCHES = true;
 
 	//Path planning simulator options
-	bool init_simulator = true;
-	bool run_simulation = true;
+	bool PATHSIM_INIT = true;
+	bool PATHSIM_RUN = true;
 
 	/********************************************************************************************************
 	 * Initial checks                                                                                       *
 	 ********************************************************************************************************/
 
-	if(!exists(calibrationFile)){
+	if(!exists(CALIBRATION_FILE)){
 		cout << "WARNING: The given calibration file path doesn't exist. File must end with .yml extension." << endl;
 		cout << "Would you like to calibrate the camera (y/n)?" << endl;
 		string response;
 		cin >> response;
-		if(response != "n" || response != "N") calibrate_camera = true;
+		if(response != "n" || response != "N") STEREOCAM_CALIBRATE = true;
 	}
-	else if(!is_regular_file(calibrationFile)){
-		if(is_directory(calibrationFile)){
+	else if(!is_regular_file(CALIBRATION_FILE)){
+		if(is_directory(CALIBRATION_FILE)){
 			cout << "ERROR: the given calibration file path is a directory" << endl;
 		}
 		else cout << "ERROR: the given calibration file path is invalid" << endl;
 		return 1;
 	}
 
-	if(!exists(outputFolder)) cout << "ERROR: Output folder path doesn't exist." << endl;
-	else if(!is_directory(outputFolder)) cout << "ERROR: Output folder must be a directory" << endl;
+	if(!exists(OUTPUT_FOLDER)) cout << "ERROR: Output folder path doesn't exist." << endl;
+	else if(!is_directory(OUTPUT_FOLDER)) cout << "ERROR: Output folder must be a directory" << endl;
 
 	/********************************************************************************************************
 	 * Initialization of the StereoPair object                                                              *
@@ -82,19 +82,19 @@ int main(int argc, char* argv[])
 	 * It is important to check if the camera indexes and frame rate are correct.                           *
 	 ********************************************************************************************************/
 	StereoPair stereo;
-	if(init_stereo_camera){
+	if(STEREOCAM_INIT){
 		bool initStereoSuccess;
-		stereo = StereoPair(leftCamID, rightCamID, frameRate, calibrationFile.string(), initStereoSuccess);
+		stereo = StereoPair(STEREOCAM_LEFT_ID, STEREOCAM_RIGHT_ID, STEREOCAM_FRAME_RATE, CALIBRATION_FILE.string(), initStereoSuccess);
 		if(!initStereoSuccess){
 			cout << "\n**********FINNISHED WITH CAMERA INITIALIZATION ERROR*********" << endl;
 			return 1;
 		}
 
-		if(show_rectification)				stereo.RectificationViewer();
-		if(calibrate_camera)				stereo.calibrate(true);
-		if(save_uncalibrated_stereo_pairs)	stereo.saveUncalibratedStereoImages(outputFolder.string());
-		if(save_calibrated_stereo_pairs)	stereo.saveCalibratedStereoImages(outputFolder.string());
-		if(show_disparity_map)				stereo.displayDisparityMap();
+		if(STEREOCAM_SHOW_RECTIFICATION)				stereo.RectificationViewer(OUTPUT_FOLDER.string());
+		if(STEREOCAM_CALIBRATE)				stereo.calibrate(true, OUTPUT_FOLDER.string());
+		if(STEREOCAM_SAVE_UNCALIBRATED_PAIRS)	stereo.saveUncalibratedStereoImages(OUTPUT_FOLDER.string());
+		if(STEREOCAM_SAVE_CALIBRATED_PAIRS)	stereo.saveCalibratedStereoImages(OUTPUT_FOLDER.string());
+		if(STEREOCAM_SHOW_DISPARITY_MAP)				stereo.displayDisparityMap(false, OUTPUT_FOLDER.string());
 	}
 
 
@@ -108,22 +108,22 @@ int main(int argc, char* argv[])
 	 * high may result in very few points.                                                                   *
 	 *********************************************************************************************************/
 	Odometry odometry;
-	if(init_odometry){
+	if(ODOMETRY_INIT){
 		odometry = Odometry(stereo);
-		if(show_Left_Right_matches)	odometry.showLRMatches();
+		if(ODOMETRY_SHOW_MATCHES)	odometry.showLRMatches();
 	}
 
 	/*********************************************************************************************************
 	 * Path planning simulator                                                                               *
 	 ********************************************************************************************************/
-	if(init_simulator){
-		float depth = 10;
+	if(PATHSIM_INIT){
+		float depth = 20;
 		float fov = 130;
 		float squareSize = 0.8;
 		Size windowSize(800, 0); //This is orientative and only the with will be considered
 		Simulator simulator(depth, fov, squareSize, windowSize);
 
-		if(run_simulation){
+		if(PATHSIM_RUN){
 			simulator.runSimulation();
 		}
 	}
@@ -132,8 +132,8 @@ int main(int argc, char* argv[])
 	 * Main loop                                                                                             *
 	 *********************************************************************************************************/
 
-	while(doLoop){
-		if(init_odometry)
+	while(DO_LOOP){
+		if(ODOMETRY_INIT)
 			odometry.updateOdometry();
 
 

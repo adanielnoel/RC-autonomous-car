@@ -15,7 +15,8 @@ PathPlaner::~PathPlaner() {
 	// TODO Auto-generated destructor stub
 }
 
-bool PathPlaner::findPath(ObstacleScenario scenario, float targetDirection){
+bool PathPlaner::findPath(ObstacleScenario scenario, Point2i initialLocation, Point2i targetLocation){
+
 	return false; //While this section is not written
 }
 

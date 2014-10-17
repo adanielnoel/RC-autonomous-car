@@ -17,8 +17,9 @@ public:
 	int width;			//In meters
 	int height;			//In meters
 	float squareSize;	//In meters
-	vector< vector<int> > scenario;
-	vector<Point2f> path;
+	vector< vector<int> > scenario; //A value of 0 means free, 1 means occupied
+	vector< vector<int> > path;
+	vector<Point2f> curvePath;
 };
 
 #endif /* OBSTACLESCENARIO_H_ */

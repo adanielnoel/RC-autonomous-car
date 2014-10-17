@@ -27,13 +27,14 @@ using namespace cv;
 class Simulator {
 	Scalar colorEmpty;
 	Scalar colorOccupied;
-	Scalar colorShadow;
+	Scalar colorPosition;
+	Scalar colorTarget;
 	Scalar colorGrid;
 	Scalar colorMessage;
-	Scalar colorTargetDirection;
 	int XSquares;
 	int YSquares;	//in square count
 	Size windowSize;
+	void markSquare(int markType, Point2i square, vector< vector<int> > &scenario, int sqPixSize, Mat &display);
 public:
 	Simulator(float _depth, float fov, float squareSize, Size _windowSize);	//Use real world measures
 	void runSimulation();

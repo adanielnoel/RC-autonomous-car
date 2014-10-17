@@ -28,17 +28,40 @@ Simulator::Simulator(float _depth, float fov, float squareSize, Size _windowSize
 
 	colorEmpty = Scalar(255, 255, 255);
 	colorOccupied = Scalar(50, 50, 50);
-	colorShadow = Scalar(235, 235, 235);
+	colorPosition = Scalar(50, 180, 50);
+	colorTarget = Scalar(50, 50, 180);
 	colorGrid = Scalar(150, 150, 150);
 	colorMessage = Scalar(20, 20, 100);
-	colorTargetDirection = Scalar(50, 155, 150);
+}
+
+void Simulator::markSquare(int markType, Point2i square, vector< vector<int> > &scenario, int sqPixSize, Mat &display){
+	//Calculate square corners
+	Point rect0 = Point(square.x*sqPixSize + square.x, square.y*sqPixSize + square.y);
+	Point rect1 = Point(square.x*sqPixSize + square.x + sqPixSize-1, square.y*sqPixSize + square.y + sqPixSize-1);
+	scenario.at(square.x).at(square.y) = markType;
+	switch(markType){
+	case 0:
+		rectangle(display, rect0, rect1, colorEmpty, CV_FILLED);
+		break;
+	case 1:
+		rectangle(display, rect0, rect1, colorOccupied, CV_FILLED);
+		break;
+	case 2:
+		rectangle(display, rect0, rect1, colorPosition, CV_FILLED);
+		break;
+	case 3:
+		rectangle(display, rect0, rect1, colorTarget, CV_FILLED);
+		break;
+	}
 }
 
 void Simulator::runSimulation(){
 	// Initialise an empty scenario
 	ObstacleScenario obstacleScenario;
-	float targetDirection;
+	Point2i initialLocation = Point2i(-1, -1); //Negative values indicate that this has not been set up
+	Point2i targetLocation = Point2i(-1, -1);
 
+	// Create a vector grid
 	vector< vector<int> > newScenario;
 	for(int x=0; x<XSquares; x++){
 		vector<int> newRow;
@@ -47,6 +70,7 @@ void Simulator::runSimulation(){
 		}
 		newScenario.push_back(newRow);
 	}
+
 	//Create window content
 	///Grid dimensions
 	cout<< "XSquares: " << XSquares << " | YSquares: " << YSquares << endl;
@@ -57,6 +81,8 @@ void Simulator::runSimulation(){
 	int windowWidth = squarePixelSize*XSquares + verticalLines;
 	int windowHeight = squarePixelSize*YSquares + horizontalLines;
 	Mat scenarioDisplay(windowHeight, windowWidth, CV_8UC3, colorEmpty);
+	Mat displayCopy;
+
 	for(int i=0; i<=verticalLines; i++){
 		int XOffset = (i+1)*squarePixelSize+i;
 		line(scenarioDisplay, Point(XOffset, 0), Point(XOffset, windowHeight-1), colorGrid);
@@ -65,84 +91,76 @@ void Simulator::runSimulation(){
 		int YOffset = (i+1)*squarePixelSize+i;
 		line(scenarioDisplay, Point(0, YOffset), Point(windowWidth-1, YOffset), colorGrid);
 	}
-	 //Create a window
+
+	/////////Create a window object and set up mouse events/////////////
 	namedWindow("My Window", 1);
 	MouseData mouse;
-	Point2i lastClick;
+	Point2i lastSquare;
 	//set the callback function for any mouse event
 	setMouseCallback("My Window", CallBackFunc, &mouse);
+	////////////////////////////////////////////////////////////////////
 
-	Mat displayCopy;
-	int selectionMode = 0; //0 to select squares, 1 to select direction
+	printf("Press 'a' and move cursor to occupy squares.\nPress 's' and move cursor to empty occupied squares.\n");
+	printf("Click to place the initial square.\nClick again to place the target square.\n");
+	printf("Press ENTER to generate a path.\n");
 
 	while(1){
-		imshow("My Window", scenarioDisplay);
-		switch(selectionMode){
-			case 0:		//Select obstacle squares
-				if(mouse.mouseEventType == EVENT_LBUTTONDOWN){
-					Point clickedPixel = mouse.p;
-					if(clickedPixel.x != lastClick.x && clickedPixel.y != lastClick.y){
-						//cout << "New x: " << clickedPixel.x << " | New y: " << clickedPixel.y << endl;
-						int mx = clickedPixel.x; int my = clickedPixel.y;
-						int sqX = ceil((mx+1)/(squarePixelSize+1));
-						int sqY = ceil((my+1)/(squarePixelSize+1));
-						newScenario.at(sqX).at(sqY) = 1;
-						Point rect0 = Point(sqX*squarePixelSize + sqX, sqY*squarePixelSize + sqY);
-						Point rect1 = Point(sqX*squarePixelSize + sqX + squarePixelSize-1, sqY*squarePixelSize + sqY + squarePixelSize-1);
-						rectangle(scenarioDisplay, rect0, rect1, colorOccupied, CV_FILLED);
-						for(int j=0; j<sqY; j++){
-							Point srect0 = Point(sqX*squarePixelSize + sqX, j*squarePixelSize + j);
-							Point srect1 = Point(sqX*squarePixelSize + sqX + squarePixelSize - 1, j*squarePixelSize + j + squarePixelSize - 1);
-							rectangle(scenarioDisplay, srect0, srect1, colorShadow, CV_FILLED);
-						}
-						cout << "sqX: " << sqX << "  |  sqY: " << sqY << endl;
-						lastClick = clickedPixel;
-					}
-				}
-			break;
+		//Get current key pressed, if
+		int keyPressed = waitKey(1);
 
-			case 1:		//Select target direction
-			{
-				if(mouse.mouseEventType == EVENT_LBUTTONDOWN)	selectionMode = 2;
-				Mat dirSelect = displayCopy.clone();
-				Point C = Point(windowWidth/2, windowHeight-1);
-				float deltaY = abs(mouse.p.y-C.y);
-				float deltaX = mouse.p.x - windowWidth/2;
-				targetDirection = atan(deltaY/deltaX); //Return angle in radians
-				if(targetDirection < 0) targetDirection += M_PI;
-				float lineLength = 300;
-				deltaX = windowWidth/2 + lineLength*cos(targetDirection);
-				deltaY = windowHeight - lineLength*sin(targetDirection);
-				targetDirection *=  180 / M_PI; //convert to degrees
-				Point L = Point(deltaX, deltaY);
-				line(dirSelect, C, L, colorTargetDirection, 3);
-				if(mouse.mouseEventType == EVENT_LBUTTONDOWN){
-					displayCopy = dirSelect.clone();
-					selectionMode = 2;
-				}
-				else scenarioDisplay = dirSelect;
+		/////////////Get the current square under the cursor/////////////////
+		Point currentPixel = mouse.p;
+		int mx = currentPixel.x; int my = currentPixel.y;
+		int sqX = ceil((mx+1)/(squarePixelSize+1));
+		int sqY = ceil((my+1)/(squarePixelSize+1));
+		Point2i currentSquare = Point2i(sqX, sqY);
+		////////////////////////////////////////////////////////////////////
+		if(mouse.mouseEventType == EVENT_LBUTTONDOWN){
+			/*if(newScenario.at(sqX).at(sqY) == 2){
+				cout << "1" << endl;
+				initialLocation = Point2i(-1, -1);
+				markSquare(0, currentSquare, newScenario, squarePixelSize, scenarioDisplay);
+				continue;
 			}
-			break;
-
-			case 2:		//Display prompt
-				Mat displayMessage = displayCopy.clone();
-				putText(displayMessage, "Press ENTER to generate path", Point(80, windowHeight-50), FONT_HERSHEY_DUPLEX, 1, colorMessage);
-				scenarioDisplay = displayMessage;
-			break;
+			else if(newScenario.at(sqX).at(sqY) == 3 && keyPressed == 100){
+				cout << "2" << endl;
+				targetLocation = Point2i(-1, -1);
+				markSquare(0, currentSquare, newScenario, squarePixelSize, scenarioDisplay);
+				continue;
+			}
+			else*/ if(initialLocation.x < 0 || initialLocation.y < 0){
+				initialLocation = currentSquare;
+				markSquare(2, currentSquare, newScenario, squarePixelSize, scenarioDisplay);
+			}
+			else if((targetLocation.x < 0 || targetLocation.y < 0) && (newScenario.at(sqX).at(sqY) != 2)){
+				targetLocation = currentSquare;
+				markSquare(3, currentSquare, newScenario, squarePixelSize, scenarioDisplay);
+			}
+			continue;
+		}
+		//Mark as occupied (if keyPressed is 'a') or empty (if keyPressed is 's')
+		if(keyPressed == 115){	//ASCII 97 = 's'
+			//Mark square as empty
+			markSquare(0, currentSquare, newScenario, squarePixelSize, scenarioDisplay);
+		}
+		else if(keyPressed == 97){	//ASCII 97 = 'a'
+			//Mark square as occupied
+			markSquare(1, currentSquare, newScenario, squarePixelSize, scenarioDisplay);
 		}
 
-		// Wait until user press some key
-		int keyPressed = waitKey(30);
+		//Save current square for next iteration
+		lastSquare = Point(sqX, sqY);
+
+		//Update the simulator display
+		imshow("My Window", scenarioDisplay);
+
 		if( keyPressed == 27)	break;					//If keypressed is ESC exit simulation
-		else if( keyPressed == 100){					//If keypressed is 'd' enter select direction mode
-			selectionMode = 1;
-			displayCopy = scenarioDisplay.clone();
-		}
-		else if( selectionMode == 2 && keyPressed == 13){//If keypressed is ENTER send scenario to path planner
+
+		else if(keyPressed == 13){//If keypressed is ENTER send scenario to path planner
 			obstacleScenario.scenario = newScenario;
 			PathPlaner planer;
 			bool success;
-			success = planer.findPath(obstacleScenario, targetDirection);
+			success = planer.findPath(obstacleScenario, initialLocation, targetLocation);
 			if(!success) cout << "***NO SUITABLE PATH FOUND***" << endl;
 			break;
 		}
