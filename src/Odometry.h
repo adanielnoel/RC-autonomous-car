@@ -13,7 +13,7 @@
 #include "opencv2/features2d/features2d.hpp"
 #include "opencv2/opencv.hpp"
 #include <stdio.h>
-#include "cv.h"
+//#include "cv.h"
 #include <cmath>
 #include "StereoPair.h"
 
@@ -50,7 +50,7 @@ class Odometry {
 	StereoPair* 			camera;
 
 		//Parameters
-	static const float	MAXIMUM_EPIPOLAR_DIFFERENCE = 5;//Maximum y difference between key points when DO_EPIPOLAR_FILTER is activated.
+	static const float	MAXIMUM_EPIPOLAR_DIFFERENCE;//Maximum y difference between key points when DO_EPIPOLAR_FILTER is activated.
 	static const bool	DO_CROSS_CHECK = true;			//Enabling cross check ensures that each feature has one only match
 	static const bool	DO_EPIPOLAR_FILTER = true;		//Enables epipolar filter for matching stereo images
 

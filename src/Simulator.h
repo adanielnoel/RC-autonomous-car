@@ -11,7 +11,7 @@
 #include "opencv2/contrib/contrib.hpp"
 #include "opencv2/opencv.hpp"
 #include <stdio.h>
-#include "cv.h"
+//#include "cv.h"
 #include <cmath>
 
 #include "ObstacleScenario.h"
@@ -25,19 +25,32 @@ using namespace cv;
 
 
 class Simulator {
-	Scalar colorEmpty;
-	Scalar colorOccupied;
-	Scalar colorPosition;
-	Scalar colorTarget;
-	Scalar colorGrid;
-	Scalar colorMessage;
+	static const Scalar colorEmpty;
+    static const Scalar colorOccupied;
+	static const Scalar colorPosition;
+	static const Scalar colorTarget;
+    static const Scalar colorShadow;
+	static const Scalar colorGrid;
+    static const Scalar colorSeparatorLine;
+	static const Scalar colorMessage;
+    
+    int simulatorType;
+    vector< vector<int> > scenario;
+    int squarePixelSize;
+    Mat display;
 	int XSquares;
 	int YSquares;	//in square count
 	Size windowSize;
-	void markSquare(int markType, Point2i square, vector< vector<int> > &scenario, int sqPixSize, Mat &display);
+	void markSquare(int markType, Point2i square);
+    void clearColumn(int column);
+    void drawShadow(Point2i square);
 public:
-	Simulator(float _depth, float fov, float squareSize, Size _windowSize);	//Use real world measures
+    static const int TYPE_AVOIDANCE;
+    static const int TYPE_NAVIGATION;
+	Simulator(float data1, float data2, int type, float squareSize, Size _windowSize);	//Use real world measures
 	void runSimulation();
+    void avoidanceSimulator();
+    void navigationSimulator();
 	virtual ~Simulator();
 };
 

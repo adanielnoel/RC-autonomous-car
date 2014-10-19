@@ -5,10 +5,9 @@
 #include "opencv2/core/core.hpp"
 #include "opencv2/contrib/contrib.hpp"
 #include "opencv2/opencv.hpp"
-#include "boost/filesystem.hpp"
 #include <stdio.h>
 #include <sys/stat.h>
-#include "cv.h"
+//#include "cv.h"
 #include "StereoPair.h"
 #include "Odometry.h"
 #include "Simulator.h"
@@ -16,7 +15,6 @@
 
 using namespace cv;
 using namespace std;
-using namespace boost::filesystem;
 
 int main(int argc, char* argv[])
 {
@@ -26,8 +24,8 @@ int main(int argc, char* argv[])
 	 *******************************************************************************************************/
 
 	// File and folder paths
-	path OUTPUT_FOLDER		= "/home/alejandro/Documents/eclipse_workspace/cv_1/Data/";
-	path CALIBRATION_FILE	= "/home/alejandro/Documents/eclipse_workspace/cv_1/Data/stereo_calibration_parameters.yml";
+	string OUTPUT_FOLDER		= "/home/alejandro/Documents/eclipse_workspace/cv_1/Data/";
+	string CALIBRATION_FILE	= "/home/alejandro/Documents/eclipse_workspace/cv_1/Data/stereo_calibration_parameters.yml";
 
 	//Main options
 	bool DO_LOOP = false; //This enables/disables the main loop
@@ -51,29 +49,9 @@ int main(int argc, char* argv[])
 
 	//Path planning simulator options
 	bool PATHSIM_INIT = true;
-	bool PATHSIM_RUN = true;
+    bool PATHSIM_RUN_AVOIDANCE = true;
+    bool PATHSIM_RUN_NAVIGATION = false;
 
-	/********************************************************************************************************
-	 * Initial checks                                                                                       *
-	 ********************************************************************************************************/
-
-	if(!exists(CALIBRATION_FILE)){
-		cout << "WARNING: The given calibration file path doesn't exist. File must end with .yml extension." << endl;
-		cout << "Would you like to calibrate the camera (y/n)?" << endl;
-		string response;
-		cin >> response;
-		if(response != "n" || response != "N") STEREOCAM_CALIBRATE = true;
-	}
-	else if(!is_regular_file(CALIBRATION_FILE)){
-		if(is_directory(CALIBRATION_FILE)){
-			cout << "ERROR: the given calibration file path is a directory" << endl;
-		}
-		else cout << "ERROR: the given calibration file path is invalid" << endl;
-		return 1;
-	}
-
-	if(!exists(OUTPUT_FOLDER)) cout << "ERROR: Output folder path doesn't exist." << endl;
-	else if(!is_directory(OUTPUT_FOLDER)) cout << "ERROR: Output folder must be a directory" << endl;
 
 	/********************************************************************************************************
 	 * Initialization of the StereoPair object                                                              *
@@ -84,17 +62,17 @@ int main(int argc, char* argv[])
 	StereoPair stereo;
 	if(STEREOCAM_INIT){
 		bool initStereoSuccess;
-		stereo = StereoPair(STEREOCAM_LEFT_ID, STEREOCAM_RIGHT_ID, STEREOCAM_FRAME_RATE, CALIBRATION_FILE.string(), initStereoSuccess);
+		stereo = StereoPair(STEREOCAM_LEFT_ID, STEREOCAM_RIGHT_ID, STEREOCAM_FRAME_RATE, CALIBRATION_FILE, initStereoSuccess);
 		if(!initStereoSuccess){
 			cout << "\n**********FINNISHED WITH CAMERA INITIALIZATION ERROR*********" << endl;
 			return 1;
 		}
 
-		if(STEREOCAM_SHOW_RECTIFICATION)				stereo.RectificationViewer(OUTPUT_FOLDER.string());
-		if(STEREOCAM_CALIBRATE)				stereo.calibrate(true, OUTPUT_FOLDER.string());
-		if(STEREOCAM_SAVE_UNCALIBRATED_PAIRS)	stereo.saveUncalibratedStereoImages(OUTPUT_FOLDER.string());
-		if(STEREOCAM_SAVE_CALIBRATED_PAIRS)	stereo.saveCalibratedStereoImages(OUTPUT_FOLDER.string());
-		if(STEREOCAM_SHOW_DISPARITY_MAP)				stereo.displayDisparityMap(false, OUTPUT_FOLDER.string());
+		if(STEREOCAM_SHOW_RECTIFICATION)				stereo.RectificationViewer(OUTPUT_FOLDER);
+		if(STEREOCAM_CALIBRATE)				stereo.calibrate(true, OUTPUT_FOLDER);
+		if(STEREOCAM_SAVE_UNCALIBRATED_PAIRS)	stereo.saveUncalibratedStereoImages(OUTPUT_FOLDER);
+		if(STEREOCAM_SAVE_CALIBRATED_PAIRS)	stereo.saveCalibratedStereoImages(OUTPUT_FOLDER);
+		if(STEREOCAM_SHOW_DISPARITY_MAP)				stereo.displayDisparityMap(false, OUTPUT_FOLDER);
 	}
 
 
@@ -117,15 +95,22 @@ int main(int argc, char* argv[])
 	 * Path planning simulator                                                                               *
 	 ********************************************************************************************************/
 	if(PATHSIM_INIT){
-		float depth = 20;
-		float fov = 130;
-		float squareSize = 0.8;
-		Size windowSize(800, 0); //This is orientative and only the with will be considered
-		Simulator simulator(depth, fov, squareSize, windowSize);
-
-		if(PATHSIM_RUN){
-			simulator.runSimulation();
-		}
+        if (PATHSIM_RUN_AVOIDANCE) {
+            float depth = 20;       //In meters
+            float fov = 130;        //In meters
+            float squareSize = 0.8; //In meters
+            Size windowSize(800, 0); //This is orientative and only the with will be considered
+            Simulator simulator(depth, fov, Simulator::TYPE_AVOIDANCE, squareSize, windowSize);
+            simulator.runSimulation();
+        }
+        else if (PATHSIM_RUN_NAVIGATION){
+            float width = 20;       //In meters
+            float depth = 10;      //In meters
+            float squareSize = 0.8; //In meters
+            Size windowSize(800, 0); //This is orientative and only the with will be considered
+            Simulator simulator(width, depth, Simulator::TYPE_NAVIGATION, squareSize, windowSize);
+            simulator.runSimulation();
+        }
 	}
 
 	/*********************************************************************************************************

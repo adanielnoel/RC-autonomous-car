@@ -7,6 +7,8 @@
 
 #include "Odometry.h"
 
+const float	Odometry::MAXIMUM_EPIPOLAR_DIFFERENCE = 5;
+
 Odometry::Odometry(){
 	camera = new StereoPair();
 }
@@ -199,11 +201,6 @@ vector<DMatch> Odometry::filteredMatch(vector<KeyPoint> kp1, vector<KeyPoint> kp
 
     return FMatches;
 }
-
-
-/*---------------------------------------------------------------------------*
- * TESTING AREA
- *---------------------------------------------------------------------------*/
 
 void Odometry::showLRMatches(){
 	float epiHThres = 10000;	//set to very high number to take no effect

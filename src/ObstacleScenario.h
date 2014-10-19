@@ -8,7 +8,7 @@
 #ifndef OBSTACLESCENARIO_H_
 #define OBSTACLESCENARIO_H_
 
-#include "cv.h"
+//#include "cv.h"
 
 using namespace cv;
 

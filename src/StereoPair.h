@@ -18,7 +18,7 @@
 #include "opencv2/contrib/contrib.hpp"
 #include "opencv2/opencv.hpp"
 #include <stdio.h>
-#include "cv.h"
+//#include "cv.h"
 
 #ifndef STEREOPAIR_H_
 #define STEREOPAIR_H_

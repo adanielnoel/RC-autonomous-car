@@ -12,7 +12,7 @@
 #include "opencv2/contrib/contrib.hpp"
 #include "opencv2/opencv.hpp"
 #include <stdio.h>
-#include "cv.h"
+//#include "cv.h"
 
 #include "ObstacleScenario.h"
 
@@ -23,13 +23,14 @@ using namespace std;
 using namespace cv;
 
 class PathPlaner {
-	static const float WAYPOINT_DIST = 0.3;				//In the same units as Scenario.squareSize
-	static const float MIN_DIST_FROM_OBSTACLE = 0.3;	//In the same units as Scenario.squareSize
+	static const float WAYPOINT_DIST;				//In the same units as Scenario.squareSize
+	static const float MIN_DIST_FROM_OBSTACLE;	//In the same units as Scenario.squareSize
 
 public:
 	PathPlaner();
 	virtual ~PathPlaner();
-	bool findPath(ObstacleScenario scenario, Point2i initialLocation, Point2i targetLocation);
+	bool findNavigationPath(ObstacleScenario scenario, Point2i initialLocation, Point2i targetLocation);
+    bool findAvoidancePath(ObstacleScenario scenario, Mat &display, int squarePixelSize);
 	Point expandRange();
 };
 
