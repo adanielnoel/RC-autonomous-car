@@ -19,14 +19,13 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata){
 	md->mouseEventType = event;
 }
 
-const Scalar Simulator::colorEmpty = Scalar(255, 255, 255);
-const Scalar Simulator::colorOccupied = Scalar(50, 50, 50);
-const Scalar Simulator::colorPosition = Scalar(50, 180, 50);
-const Scalar Simulator::colorTarget = Scalar(50, 50, 180);
-const Scalar Simulator::colorShadow = Scalar(230, 230, 230);
-const Scalar Simulator::colorGrid = Scalar(150, 150, 150);
-const Scalar Simulator::colorSeparatorLine = Scalar(20, 20, 220);
-const Scalar Simulator::colorMessage = Scalar(20, 20, 100);
+const Scalar Simulator::COLOR_EMPTY = Scalar(255, 255, 255);
+const Scalar Simulator::COLOR_OCCUPIED = Scalar(50, 50, 50);
+const Scalar Simulator::COLOR_POSITION = Scalar(50, 180, 50);
+const Scalar Simulator::COLOR_TARGET = Scalar(50, 50, 180);
+const Scalar Simulator::COLOR_SHADOW = Scalar(230, 230, 230);
+const Scalar Simulator::COLOR_GRID = Scalar(180, 180, 180);
+const Scalar Simulator::COLOR_SEPARATOR_LINE = Scalar(20, 20, 220);
 const int Simulator::TYPE_AVOIDANCE = 0;
 const int Simulator::TYPE_NAVIGATION = 1;
 
@@ -34,81 +33,66 @@ const int Simulator::TYPE_NAVIGATION = 1;
 Simulator::Simulator(float data1, float data2, int type, float squareSize, Size _windowSize) {
     windowSize = _windowSize;
     simulatorType = type;
-    if (type == TYPE_AVOIDANCE) {      //Avoidance simulator
+    squareRealSize = squareSize;
+    if (type == TYPE_AVOIDANCE) {       //Avoidance simulator
         //Calculate scenario dimensions
-        float depth = data1;
-        float fov = data2;
-        XSquares = (2*(depth * cos((180-fov)/2)))/squareSize; //Calculate the scenario width
+        depth = data1;
+        fov = data2;
+        float alpha = ((180-fov)/2)*M_PI / 180;
+        XSquares = (2*(depth * cos(alpha)))/squareSize; //Calculate the scenario width
         YSquares = depth/squareSize;
-        if (XSquares%2 != 0) {  //Make XSquares an even number
+        if (XSquares%2 != 0) {          //Make XSquares an even number
             XSquares++;
         }
     }
     
-    else if (type == TYPE_NAVIGATION){    //Navigation simulator
+    else if (type == TYPE_NAVIGATION){  //Navigation simulator
         XSquares = data1/squareSize;
         YSquares = data2/squareSize;
     }
-    // Initialise an empty scenario
-    ObstacleScenario obstacleScenario;
-
     
-    // Create a vector grid
-//    vector< vector<int> > scenario;
+    // Initialise an empty scenario
     for(int x=0; x<XSquares; x++){
         vector<int> newRow;
         for(int y=0; y<YSquares; y++){
-            newRow.push_back(0);	//Initialize square with value 0 (empty)
+            newRow.push_back(0);        //Initialize square with value 0 (empty)
         }
         scenario.push_back(newRow);
     }
     
     //Create window content
     ///Grid dimensions
-    cout<< "XSquares: " << XSquares << " | YSquares: " << YSquares << endl;
-    int verticalLines = XSquares-1;
-    int horizontalLines = YSquares-1;
+
     squarePixelSize = ceil(windowSize.width/XSquares);
     
-    int windowWidth = squarePixelSize*XSquares + verticalLines;
-    int windowHeight = squarePixelSize*YSquares + horizontalLines;
-    display = Mat(windowHeight, windowWidth, CV_8UC3, colorEmpty);
-    
-    for(int i=0; i<=verticalLines; i++){
-        int XOffset = (i+1)*squarePixelSize+i;
-        line(display, Point(XOffset, 0), Point(XOffset, windowHeight-1), colorGrid);
-    }
-    for(int i=0; i<=horizontalLines; i++){
-        int YOffset = (i+1)*squarePixelSize+i;
-        line(display, Point(0, YOffset), Point(windowWidth-1, YOffset), colorGrid);
-    }
-    if (type == TYPE_AVOIDANCE) {
-        line(display, Point(ceil(display.cols/2), 0), Point(ceil(display.cols/2), windowHeight-1), colorSeparatorLine, 2);
-    }
+    int windowWidth = squarePixelSize*XSquares;
+    int windowHeight = squarePixelSize*YSquares;
+    display = Mat(windowHeight, windowWidth, CV_8UC3, COLOR_EMPTY);
+    drawGrid();
 }
 
 void Simulator::markSquare(int markType, Point2i square){
 	//Calculate square corners
-	Point rect0 = Point(square.x*squarePixelSize + square.x, square.y*squarePixelSize + square.y);
-	Point rect1 = Point(square.x*squarePixelSize + square.x + squarePixelSize-1, square.y*squarePixelSize + square.y + squarePixelSize-1);
+	Point rect0 = Point(square.x*squarePixelSize, square.y*squarePixelSize);
+	Point rect1 = Point(square.x*squarePixelSize + squarePixelSize-1, square.y*squarePixelSize + squarePixelSize-1);
     
 	scenario.at(square.x).at(square.y) = markType;
 	
     switch(markType){
         case -1:
-            rectangle(display, rect0, rect1, colorShadow, CV_FILLED);
+            rectangle(display, rect0, rect1, COLOR_SHADOW, CV_FILLED);
             break;
         case 0:
-            rectangle(display, rect0, rect1, colorEmpty, CV_FILLED);
+            rectangle(display, rect0, rect1, COLOR_EMPTY, CV_FILLED);
             break;
         case 1:
-            rectangle(display, rect0, rect1, colorOccupied, CV_FILLED);
+            rectangle(display, rect0, rect1, COLOR_OCCUPIED, CV_FILLED);
             break;
         case 2:
-            rectangle(display, rect0, rect1, colorPosition, CV_FILLED);
+            rectangle(display, rect0, rect1, COLOR_POSITION, CV_FILLED);
             break;
         case 3:
-            rectangle(display, rect0, rect1, colorTarget, CV_FILLED);
+            rectangle(display, rect0, rect1, COLOR_TARGET, CV_FILLED);
             break;
     }
 }
@@ -119,9 +103,31 @@ void Simulator::clearColumn(int column){
     }
 }
 
-void    Simulator::drawShadow(Point2i square){
+void Simulator::drawShadow(Point2i square){
     for (int i = 0; i<square.y; i++) {
         markSquare(-1, Point2i(square.x, i));
+    }
+}
+
+void Simulator::drawGrid(){
+    int verticalLines = XSquares-1;
+    int horizontalLines = YSquares-1;
+    for(int i=0; i<=verticalLines; i++){
+        int XOffset = (i+1)*squarePixelSize;
+        line(display, Point(XOffset, 0), Point(XOffset, display.rows-1), COLOR_GRID);
+    }
+    for(int i=0; i<=horizontalLines; i++){
+        int YOffset = (i+1)*squarePixelSize;
+        line(display, Point(0, YOffset), Point(display.cols-1, YOffset), COLOR_GRID);
+    }
+    if (simulatorType == TYPE_AVOIDANCE) {
+        line(display, Point(ceil(display.cols/2), 0), Point(ceil(display.cols/2), display.rows-1), COLOR_SEPARATOR_LINE, 2);
+        //Draw FOV lines
+        int halfDisplay = ceil(display.cols/2);
+        float alpha = ((180-fov)/2)*M_PI / 180;
+        int h = ceil(tan(180-alpha)*halfDisplay);
+        line(display, Point(halfDisplay, display.rows), Point(0, display.rows-h), COLOR_SEPARATOR_LINE, 2);
+        line(display, Point(halfDisplay, display.rows), Point(display.cols, display.rows-h), COLOR_SEPARATOR_LINE, 2);
     }
 }
 
@@ -129,7 +135,6 @@ void Simulator::avoidanceSimulator(){
     /////////Create a window object and set up mouse events/////////////
     namedWindow("My Window", 1);
     MouseData mouse;
-    //set the callback function for any mouse event
     setMouseCallback("My Window", CallBackFunc, &mouse);
     ////////////////////////////////////////////////////////////////////
     
@@ -144,9 +149,8 @@ void Simulator::avoidanceSimulator(){
         
         /////////////Get the current square under the cursor/////////////////
         Point currentPixel = mouse.p;
-        int sqX = ceil((currentPixel.x+1)/(squarePixelSize+1));
-        int sqY = ceil((currentPixel.y+1)/(squarePixelSize+1));
-        
+        int sqX = ceil(currentPixel.x/squarePixelSize);
+        int sqY = ceil(currentPixel.y/squarePixelSize);
         Point2i currentSquare = Point2i(sqX, sqY);
         ////////////////////////////////////////////////////////////////////
 
@@ -155,6 +159,7 @@ void Simulator::avoidanceSimulator(){
             //Mark square as empty
             markSquare(0, currentSquare);
             clearColumn(currentSquare.x);
+            drawGrid();
             //Update the simulator display
             imshow("My Window", display);
         }
@@ -163,32 +168,39 @@ void Simulator::avoidanceSimulator(){
             clearColumn(currentSquare.x);
             markSquare(1, currentSquare);
             drawShadow(currentSquare);
+            drawGrid();
             //Update the simulator display
             imshow("My Window", display);
         }
         
-        if( keyPressed == 27)	break;					//If keypressed is ESC exit simulation
-        
-        else if(keyPressed == 13){//If keypressed is ENTER send scenario to path planner
+        if( keyPressed == 27)	break;          //If keypressed is ESC exit simulation
+
+        else if(keyPressed == 13){              //If keypressed is ENTER send scenario to path planner
             ObstacleScenario obstacleScenario;
             obstacleScenario.scenario = scenario;
+            obstacleScenario.squareSize = squareRealSize;
             PathPlaner planer;
-            bool success;
-            success = planer.findAvoidancePath(obstacleScenario, display, squarePixelSize);
-            if(!success) cout << "***NO SUITABLE PATH FOUND***" << endl;
+            float pathRadius;
+            pathRadius = planer.findAvoidancePath(obstacleScenario, 10000, display, squarePixelSize);
+            imshow("My Window", display);
+            waitKey(0);
+            if(pathRadius == 0) cout << "***NO SUITABLE PATH FOUND***" << endl;
+            else {
+                if(pathRadius > 1000) cout << "Found a straight path." << endl;
+                else cout << "Found a path with radius: " << pathRadius << endl;
+            }
             break;
         }
     }
 }
 
 void Simulator::navigationSimulator(){
-    Point2i initialLocation = Point2i(-1, -1); //Negative values indicate that this has not been set up
+    Point2i initialLocation = Point2i(-1, -1);  //Negative values indicate that this has not been set up
     Point2i targetLocation = Point2i(-1, -1);
     
     /////////Create a window object and set up mouse events/////////////
     namedWindow("My Window", 1);
     MouseData mouse;
-    //set the callback function for any mouse event
     setMouseCallback("My Window", CallBackFunc, &mouse);
     ////////////////////////////////////////////////////////////////////
     
@@ -204,21 +216,23 @@ void Simulator::navigationSimulator(){
         
         /////////////Get the current square under the cursor/////////////////
         Point currentPixel = mouse.p;
-        int sqX = ceil((currentPixel.x+1)/(squarePixelSize+1));
-        int sqY = ceil((currentPixel.y+1)/(squarePixelSize+1));
-        
+        int sqX = ceil(currentPixel.x/squarePixelSize);
+        int sqY = ceil(currentPixel.y/squarePixelSize);
         Point2i currentSquare = Point2i(sqX, sqY);
         ////////////////////////////////////////////////////////////////////
+        
         if(mouse.mouseEventType == EVENT_LBUTTONDOWN){
             if(initialLocation.x < 0 || initialLocation.y < 0){
-                 initialLocation = currentSquare;
-                 markSquare(2, currentSquare);
+                initialLocation = currentSquare;
+                markSquare(2, currentSquare);
+                drawGrid();
                 //Update the simulator display
                 imshow("My Window", display);
              }
              else if((targetLocation.x < 0 || targetLocation.y < 0) && (scenario.at(sqX).at(sqY) != 2)){
                  targetLocation = currentSquare;
                  markSquare(3, currentSquare);
+                 drawGrid();
                  //Update the simulator display
                  imshow("My Window", display);
              }
@@ -228,24 +242,26 @@ void Simulator::navigationSimulator(){
         if(keyPressed == 115){	//ASCII 97 = 's'
             //Mark square as empty
             markSquare(0, currentSquare);
+            drawGrid();
             //Update the simulator display
             imshow("My Window", display);
         }
         else if(keyPressed == 97){	//ASCII 97 = 'a'
             //Mark square as occupied
             markSquare(1, currentSquare);
+            drawGrid();
             //Update the simulator display
             imshow("My Window", display);
         }
         
-        if( keyPressed == 27)	break;					//If keypressed is ESC exit simulation
+        if( keyPressed == 27)	break;          //If keypressed is ESC exit simulation
         
-        else if(keyPressed == 13){//If keypressed is ENTER send scenario to path planner
+        else if(keyPressed == 13){              //If keypressed is ENTER send scenario to path planner
             ObstacleScenario obstacleScenario;
             obstacleScenario.scenario = scenario;
             PathPlaner planer;
             bool success;
-            success = planer.findAvoidancePath(obstacleScenario, display, squarePixelSize);
+            success = planer.findNavigationPath(obstacleScenario, initialLocation, targetLocation);
             if(!success) cout << "***NO SUITABLE PATH FOUND***" << endl;
             break;
         }

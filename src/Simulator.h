@@ -25,17 +25,19 @@ using namespace cv;
 
 
 class Simulator {
-	static const Scalar colorEmpty;
-    static const Scalar colorOccupied;
-	static const Scalar colorPosition;
-	static const Scalar colorTarget;
-    static const Scalar colorShadow;
-	static const Scalar colorGrid;
-    static const Scalar colorSeparatorLine;
-	static const Scalar colorMessage;
+	static const Scalar COLOR_EMPTY;
+    static const Scalar COLOR_OCCUPIED;
+	static const Scalar COLOR_POSITION;
+	static const Scalar COLOR_TARGET;
+    static const Scalar COLOR_SHADOW;
+	static const Scalar COLOR_GRID;
+    static const Scalar COLOR_SEPARATOR_LINE;
     
     int simulatorType;
+    float fov;  //Used only for avoidance simulator
+    float depth;//Used only for avoidance simulator
     vector< vector<int> > scenario;
+    float squareRealSize;
     int squarePixelSize;
     Mat display;
 	int XSquares;
@@ -44,6 +46,7 @@ class Simulator {
 	void markSquare(int markType, Point2i square);
     void clearColumn(int column);
     void drawShadow(Point2i square);
+    void drawGrid();
 public:
     static const int TYPE_AVOIDANCE;
     static const int TYPE_NAVIGATION;

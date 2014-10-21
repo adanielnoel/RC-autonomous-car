@@ -1,4 +1,4 @@
-//#include "stdafx.h"
+//#include "stdafx.h" //To compile on Windows
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -7,7 +7,7 @@
 #include "opencv2/opencv.hpp"
 #include <stdio.h>
 #include <sys/stat.h>
-//#include "cv.h"
+//#include "cv.h"   //To compile on Linux???
 #include "StereoPair.h"
 #include "Odometry.h"
 #include "Simulator.h"
@@ -24,8 +24,8 @@ int main(int argc, char* argv[])
 	 *******************************************************************************************************/
 
 	// File and folder paths
-	string OUTPUT_FOLDER		= "/home/alejandro/Documents/eclipse_workspace/cv_1/Data/";
-	string CALIBRATION_FILE	= "/home/alejandro/Documents/eclipse_workspace/cv_1/Data/stereo_calibration_parameters.yml";
+	string OUTPUT_FOLDER    = "/home/alejandro/Documents/eclipse_workspace/cv_1/Data/";
+	string CALIBRATION_FILE = "/home/alejandro/Documents/eclipse_workspace/cv_1/Data/stereo_calibration_parameters.yml";
 
 	//Main options
 	bool DO_LOOP = false; //This enables/disables the main loop
@@ -68,11 +68,11 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 
-		if(STEREOCAM_SHOW_RECTIFICATION)				stereo.RectificationViewer(OUTPUT_FOLDER);
-		if(STEREOCAM_CALIBRATE)				stereo.calibrate(true, OUTPUT_FOLDER);
-		if(STEREOCAM_SAVE_UNCALIBRATED_PAIRS)	stereo.saveUncalibratedStereoImages(OUTPUT_FOLDER);
-		if(STEREOCAM_SAVE_CALIBRATED_PAIRS)	stereo.saveCalibratedStereoImages(OUTPUT_FOLDER);
-		if(STEREOCAM_SHOW_DISPARITY_MAP)				stereo.displayDisparityMap(false, OUTPUT_FOLDER);
+		if(STEREOCAM_SHOW_RECTIFICATION)        stereo.RectificationViewer(OUTPUT_FOLDER);
+		if(STEREOCAM_CALIBRATE)                 stereo.calibrate(true, OUTPUT_FOLDER);
+		if(STEREOCAM_SAVE_UNCALIBRATED_PAIRS)   stereo.saveUncalibratedStereoImages(OUTPUT_FOLDER);
+		if(STEREOCAM_SAVE_CALIBRATED_PAIRS)     stereo.saveCalibratedStereoImages(OUTPUT_FOLDER);
+		if(STEREOCAM_SHOW_DISPARITY_MAP)        stereo.displayDisparityMap(false, OUTPUT_FOLDER);
 	}
 
 
@@ -88,7 +88,7 @@ int main(int argc, char* argv[])
 	Odometry odometry;
 	if(ODOMETRY_INIT){
 		odometry = Odometry(stereo);
-		if(ODOMETRY_SHOW_MATCHES)	odometry.showLRMatches();
+		if(ODOMETRY_SHOW_MATCHES) odometry.showLRMatches();
 	}
 
 	/*********************************************************************************************************
@@ -96,18 +96,18 @@ int main(int argc, char* argv[])
 	 ********************************************************************************************************/
 	if(PATHSIM_INIT){
         if (PATHSIM_RUN_AVOIDANCE) {
-            float depth = 20;       //In meters
+            float depth = 4;       //In meters
             float fov = 130;        //In meters
-            float squareSize = 0.8; //In meters
-            Size windowSize(800, 0); //This is orientative and only the with will be considered
+            float squareSize = 0.25; //In meters
+            Size windowSize(800, 0);//This is orientative and only the with will be considered
             Simulator simulator(depth, fov, Simulator::TYPE_AVOIDANCE, squareSize, windowSize);
             simulator.runSimulation();
         }
         else if (PATHSIM_RUN_NAVIGATION){
             float width = 20;       //In meters
-            float depth = 10;      //In meters
+            float depth = 10;       //In meters
             float squareSize = 0.8; //In meters
-            Size windowSize(800, 0); //This is orientative and only the with will be considered
+            Size windowSize(800, 0);//This is orientative and only the with will be considered
             Simulator simulator(width, depth, Simulator::TYPE_NAVIGATION, squareSize, windowSize);
             simulator.runSimulation();
         }
@@ -120,7 +120,6 @@ int main(int argc, char* argv[])
 	while(DO_LOOP){
 		if(ODOMETRY_INIT)
 			odometry.updateOdometry();
-
 
 		//Program stops when user presses ESC key
 		//If no window is open, this won't work

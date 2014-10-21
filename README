@@ -1,6 +1,9 @@
 # Self Driving RC Car #
 The aim of this project is to develop an on-board computer vision system for an RC car to make it navigate autonomously in indoor and outdoor environments.
 
+##Version 0.2.3.9##
+Avoidance path planer now detects if going straight is possible
+
 ## Version 0.2.3.8 ##
 Created an avoidance simulator interface and navigation simulator interface
 
