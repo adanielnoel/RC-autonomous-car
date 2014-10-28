@@ -128,8 +128,8 @@ bool Odometry::processNewFrame(Mat& IL, Mat& IR, vector<vector<KeyPoint> > & kpt
 	vector<DMatch> matches = filteredMatch(kpL1, kpR1, descL1, descR1, DO_CROSS_CHECK);
 
 	vector<KeyPoint> matchedKPL1, matchedKPR1;
-	Mat matchedDescL1(32, matches.size(), descL1.type());
-	Mat matchedDescR1(32, matches.size(), descR1.type());
+	Mat matchedDescL1(32, (int) matches.size(), descL1.type());
+	Mat matchedDescR1(32, (int) matches.size(), descR1.type());
 	for(unsigned int i = 0; i < matches.size(); i++){
 		matchedKPL1.push_back(kpL1.at(matches.at(i).queryIdx));
 		matchedKPR1.push_back(kpR1.at(matches.at(i).trainIdx));
@@ -156,7 +156,7 @@ bool Odometry::processNewFrame(Mat& IL, Mat& IR, vector<vector<KeyPoint> > & kpt
 
 Mat Odometry::findCommonDescriptors(Mat queryDesc, Mat trainDesc, vector<DMatch> & matches){	//commonDesc picks the matching descriptors from queryDesc
 	//this->matchDescriptors(queryDesc, trainDesc, matches, false);
-	int descriptorsFound = matches.size();
+	int descriptorsFound = (int) matches.size();
 	Mat commonDesc(descriptorsFound, 32, 0);	//Descriptor matrices have 32 columns
 	for(int i=0; i<descriptorsFound; i++){
 		commonDesc.row(i) = queryDesc.row(matches.at(i).queryIdx);

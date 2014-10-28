@@ -29,6 +29,9 @@ const Scalar Simulator::COLOR_SEPARATOR_LINE = Scalar(20, 20, 220);
 const int Simulator::TYPE_AVOIDANCE = 0;
 const int Simulator::TYPE_NAVIGATION = 1;
 
+/*******************************************************************************************\
+|   Initialization                                                                          |
+\*******************************************************************************************/
 
 Simulator::Simulator(float data1, float data2, int type, float squareSize, Size _windowSize) {
     windowSize = _windowSize;
@@ -70,6 +73,10 @@ Simulator::Simulator(float data1, float data2, int type, float squareSize, Size 
     display = Mat(windowHeight, windowWidth, CV_8UC3, COLOR_EMPTY);
     drawGrid();
 }
+
+/*******************************************************************************************\
+|   Private utility methods                                                                 |
+\*******************************************************************************************/
 
 void Simulator::markSquare(int markType, Point2i square){
 	//Calculate square corners
@@ -130,6 +137,10 @@ void Simulator::drawGrid(){
         line(display, Point(halfDisplay, display.rows), Point(display.cols, display.rows-h), COLOR_SEPARATOR_LINE, 2);
     }
 }
+
+/*******************************************************************************************\
+|   Avoidance simulator                                                                     |
+\*******************************************************************************************/
 
 void Simulator::avoidanceSimulator(){
     /////////Create a window object and set up mouse events/////////////
@@ -193,6 +204,10 @@ void Simulator::avoidanceSimulator(){
         }
     }
 }
+
+/*******************************************************************************************\
+|   Navigation simulator                                                                    |
+\*******************************************************************************************/
 
 void Simulator::navigationSimulator(){
     Point2i initialLocation = Point2i(-1, -1);  //Negative values indicate that this has not been set up
@@ -268,7 +283,9 @@ void Simulator::navigationSimulator(){
     }
 }
 
-
+/*******************************************************************************************\
+|   Simulator auto-choose                                                                   |
+\*******************************************************************************************/
 void Simulator::runSimulation(){
     if (simulatorType == TYPE_AVOIDANCE)
         avoidanceSimulator();
