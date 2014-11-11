@@ -52,7 +52,7 @@ public:
     static const int TYPE_NAVIGATION;
 	Simulator(float data1, float data2, int type, float squareSize, Size _windowSize);	//Use real world measures
 	void runSimulation();
-    void avoidanceSimulator();
+    void avoidanceSimulator(bool autoEraseColumns);
     void navigationSimulator();
 	virtual ~Simulator();
 };

@@ -19,11 +19,11 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata){
 	md->mouseEventType = event;
 }
 
-const Scalar Simulator::COLOR_EMPTY = Scalar(255, 255, 255);
+const Scalar Simulator::COLOR_EMPTY    = Scalar(255, 255, 255);
 const Scalar Simulator::COLOR_OCCUPIED = Scalar(50, 50, 50);
 const Scalar Simulator::COLOR_POSITION = Scalar(50, 180, 50);
-const Scalar Simulator::COLOR_TARGET = Scalar(50, 50, 180);
-const Scalar Simulator::COLOR_SHADOW = Scalar(230, 230, 230);
+const Scalar Simulator::COLOR_TARGET   = Scalar(50, 50, 180);
+const Scalar Simulator::COLOR_SHADOW   = Scalar(230, 230, 230);
 const Scalar Simulator::COLOR_GRID = Scalar(180, 180, 180);
 const Scalar Simulator::COLOR_SEPARATOR_LINE = Scalar(20, 20, 220);
 const int Simulator::TYPE_AVOIDANCE = 0;
@@ -111,8 +111,10 @@ void Simulator::clearColumn(int column){
 }
 
 void Simulator::drawShadow(Point2i square){
-    for (int i = 0; i<square.y; i++) {
-        markSquare(-1, Point2i(square.x, i));
+    for (int j = 0; j<square.y; j++) {
+        if (scenario.at(square.x).at(j) == 0) {
+            markSquare(-1, Point2i(square.x, j));
+        }
     }
 }
 
@@ -142,7 +144,7 @@ void Simulator::drawGrid(){
 |   Avoidance simulator                                                                     |
 \*******************************************************************************************/
 
-void Simulator::avoidanceSimulator(){
+void Simulator::avoidanceSimulator(bool autoEraseColumns = false){
     /////////Create a window object and set up mouse events/////////////
     namedWindow("My Window", 1);
     MouseData mouse;
@@ -169,14 +171,14 @@ void Simulator::avoidanceSimulator(){
         if(keyPressed == 115){	//ASCII 97 = 's'
             //Mark square as empty
             markSquare(0, currentSquare);
-            clearColumn(currentSquare.x);
+            if(autoEraseColumns) clearColumn(currentSquare.x);
             drawGrid();
             //Update the simulator display
             imshow("My Window", display);
         }
         else if(keyPressed == 97){	//ASCII 97 = 'a'
             //Mark square as occupied
-            clearColumn(currentSquare.x);
+            if(autoEraseColumns) clearColumn(currentSquare.x);
             markSquare(1, currentSquare);
             drawShadow(currentSquare);
             drawGrid();
