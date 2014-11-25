@@ -43,7 +43,7 @@ class Simulator {
 	int XSquares;
 	int YSquares;	//in square count
 	Size windowSize;
-	void markSquare(int markType, Point2i square);
+	void markSquare(int markType, Point2i square, bool isShadow);
     void clearColumn(int column);
     void drawShadow(Point2i square);
     void drawGrid();

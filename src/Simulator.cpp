@@ -78,7 +78,7 @@ Simulator::Simulator(float data1, float data2, int type, float squareSize, Size 
 |   Private utility methods                                                                 |
 \*******************************************************************************************/
 
-void Simulator::markSquare(int markType, Point2i square){
+void Simulator::markSquare(int markType, Point2i square, bool isShadow = false){
 	//Calculate square corners
 	Point rect0 = Point(square.x*squarePixelSize, square.y*squarePixelSize);
 	Point rect1 = Point(square.x*squarePixelSize + squarePixelSize-1, square.y*squarePixelSize + squarePixelSize-1);
@@ -90,7 +90,10 @@ void Simulator::markSquare(int markType, Point2i square){
             rectangle(display, rect0, rect1, COLOR_SHADOW, CV_FILLED);
             break;
         case 0:
-            rectangle(display, rect0, rect1, COLOR_EMPTY, CV_FILLED);
+            if (isShadow)
+                rectangle(display, rect0, rect1, COLOR_SHADOW, CV_FILLED);
+            else
+                rectangle(display, rect0, rect1, COLOR_EMPTY, CV_FILLED);
             break;
         case 1:
             rectangle(display, rect0, rect1, COLOR_OCCUPIED, CV_FILLED);
@@ -111,9 +114,10 @@ void Simulator::clearColumn(int column){
 }
 
 void Simulator::drawShadow(Point2i square){
+    bool drawSadow = true;
     for (int j = 0; j<square.y; j++) {
         if (scenario.at(square.x).at(j) == 0) {
-            markSquare(-1, Point2i(square.x, j));
+            markSquare(0, Point2i(square.x, j), drawSadow);
         }
     }
 }

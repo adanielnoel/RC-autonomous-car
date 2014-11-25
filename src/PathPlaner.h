@@ -26,6 +26,7 @@ using namespace cv;
 struct Corner{
     Point2f cornerLoc;
     bool isTop;
+    bool isLeft;
 };
 
 struct RadiusPair{
@@ -41,9 +42,9 @@ class PathPlaner {
     vector<vector<int> > scen;
     int pixelsPerMeter; //In meters
     float squareSize;   //In meters
-    float radiusForTangency(Point2f initLoc, Point2f tangentPoint);
+    float radiusForTangency(Point2f tangentPoint);
     void drawAvoidancePaths(Mat &display, vector<RadiusPair> radiusRanges, Point2f viewerLoc);
-    void neigbourExpand(Point currentSquare, vector<Corner> &corners);
+    void neighborExpand(Point currentSquare, Point viewerLoc, vector<Corner> &corners);
     
 public:
 	static const float HALF_VEHICLE_WIDTH;          //In the same units as Scenario.squareSize
