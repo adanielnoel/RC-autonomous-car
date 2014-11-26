@@ -98,7 +98,7 @@ int main(int argc, char* argv[])
         if (PATHSIM_RUN_AVOIDANCE) {
             float depth = 4;       //In meters
             float fov = 130;        //In meters
-            float squareSize = 0.25; //In meters
+            float squareSize = 0.05; //In meters
             Size windowSize(800, 0);//This is orientative and only the with will be considered
             Simulator simulator(depth, fov, Simulator::TYPE_AVOIDANCE, squareSize, windowSize);
             simulator.runSimulation();

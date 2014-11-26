@@ -246,7 +246,7 @@ RadiusPair findMinMaxRadius(vector<Corner> corners, Point2f initLoc){
                         rad1 = newRadius; //Always take the smaller radius, to ensure it is only tangent at one point.
                 }
             }
-            else if (currentCorner.cornerLoc.x > -PathPlaner::HALF_VEHICLE_WIDTH && currentCorner.cornerLoc.x < PathPlaner::HALF_VEHICLE_WIDTH){
+            else if (currentCorner.cornerLoc.x >= -PathPlaner::HALF_VEHICLE_WIDTH && currentCorner.cornerLoc.x <= PathPlaner::HALF_VEHICLE_WIDTH){
                 if (currentCorner.isLeft) {
                     newRadius = radiusForTangency(Point2f(currentCorner.cornerLoc.x - PathPlaner::HALF_VEHICLE_WIDTH, currentCorner.cornerLoc.y));
                     newRadius -= PathPlaner::HALF_VEHICLE_WIDTH;
@@ -256,7 +256,6 @@ RadiusPair findMinMaxRadius(vector<Corner> corners, Point2f initLoc){
                 else{
                     newRadius = radiusForTangency(Point2f(currentCorner.cornerLoc.x + PathPlaner::HALF_VEHICLE_WIDTH, currentCorner.cornerLoc.y));
                     newRadius -= PathPlaner::HALF_VEHICLE_WIDTH;
-                    rad1 = newRadius;
                     if (abs(newRadius) < abs(rad1))
                         rad1 = newRadius;
                 }
@@ -437,6 +436,10 @@ float PathPlaner::findAvoidancePath(ObstacleScenario scenario, float initialCurv
                 ////////////////////////////////////////
             }
         }
+    }
+    if (tangentRadiuses.empty()) {
+        cout << "No obstacles where detected" << endl;
+        return 0.0;
     }
   // imshow("Display", display);
   //  waitKey(0);
