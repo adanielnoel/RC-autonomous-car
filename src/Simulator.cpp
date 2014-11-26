@@ -141,6 +141,16 @@ void Simulator::drawGrid(){
         int h = ceil(tan(180-alpha)*halfDisplay);
         line(display, Point(halfDisplay, display.rows), Point(0, display.rows-h), COLOR_SEPARATOR_LINE, 2);
         line(display, Point(halfDisplay, display.rows), Point(display.cols, display.rows-h), COLOR_SEPARATOR_LINE, 2);
+        
+        ////////Draw a car////////////
+        Mat carImg = imread("/Users/alejandrodanielnoel/Documents/XCode projects/Autonomous_Car/src/car_top.png");
+        resize(carImg, carImg, Size(60, 120));
+        Rect roi(0, 0, carImg.cols,carImg.rows/2-5);
+        Mat image_roi = carImg(roi);
+        image_roi.copyTo(carImg);
+        Mat displayROI(display, Rect(display.cols/2-carImg.cols/2, display.rows-carImg.rows, carImg.cols, carImg.rows));
+        carImg.copyTo(displayROI);
+        //////////////////////////////
     }
 }
 
@@ -199,6 +209,15 @@ void Simulator::avoidanceSimulator(bool autoEraseColumns = false){
             PathPlaner planer;
             float pathRadius;
             pathRadius = planer.findAvoidancePath(obstacleScenario, 10000, display, squarePixelSize);
+            ////////Draw a car////////////
+            Mat carImg = imread("/Users/alejandrodanielnoel/Documents/XCode projects/Autonomous_Car/src/car_top.png");
+            resize(carImg, carImg, Size(60, 120));
+            Rect roi(0, 0, carImg.cols,carImg.rows/2-5);
+            Mat image_roi = carImg(roi);
+            image_roi.copyTo(carImg);
+            Mat displayROI(display, Rect(display.cols/2-carImg.cols/2, display.rows-carImg.rows, carImg.cols, carImg.rows));
+            carImg.copyTo(displayROI);
+            //////////////////////////////
             imshow("My Window", display);
             waitKey(0);
             if(pathRadius == 0) cout << "***NO SUITABLE PATH FOUND***" << endl;
