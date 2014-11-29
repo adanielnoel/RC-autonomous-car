@@ -48,6 +48,7 @@ class PathPlaner {
     
 public:
 	static const float HALF_VEHICLE_WIDTH;          //In the same units as Scenario.squareSize
+    static const float MINIMUM_RADIUS;
 	PathPlaner();
 	virtual ~PathPlaner();
     float findAvoidancePath(ObstacleScenario scenario, float initialCurveRadius, Mat &display, int squarePixelSize);

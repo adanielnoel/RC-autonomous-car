@@ -9,9 +9,10 @@
 
 
 const float PathPlaner::WAYPOINT_DIST = 0.3;
-const float PathPlaner::HALF_VEHICLE_WIDTH = 0.3;
+const float PathPlaner::MINIMUM_RADIUS = 1;
+const float PathPlaner::HALF_VEHICLE_WIDTH = 0.38   ;
 const Scalar PathPlaner::COLOR_PATH = Scalar(30, 150, 30);
-const Scalar PathPlaner::COLOR_PATH_LIMITS = Scalar(30, 30, 150);
+const Scalar PathPlaner::COLOR_PATH_LIMITS = Scalar(0, 150, 33);
 const Scalar PathPlaner::COLOR_CORNERS = Scalar(30, 30, 150);
 
 
@@ -34,13 +35,11 @@ void PathPlaner::drawAvoidancePaths(cv::Mat &display, vector<RadiusPair> radiusR
         float minRad = radiusRanges.at(i).radius1;
         float maxRad = radiusRanges.at(i).radius2;
         Point curveCenter;
-        Scalar curveColor = Scalar((i%2)*200,((i*2 % 3)*100)%255,(100+30*i)%255);
+        //Scalar curveColor = Scalar((i%2)*200,((i*2 % 3)*100)%255,(100+30*i)%255);
+        Scalar curveColor = COLOR_PATH_LIMITS;
+        
         //Draw the minimum radius
         if (minRad == 0) continue;
-        else if (minRad > 1000){
-            line(display, Point(viewerLoc.x*pixelsPerMeter, 0), Point(viewerLoc.x*pixelsPerMeter, display.rows), curveColor, 2);
-            continue;
-        }
         curveCenter = Point((viewerLoc.x+minRad)*pixelsPerMeter, display.rows);
         minRad = abs(minRad);
         circle(display, curveCenter, minRad*pixelsPerMeter, curveColor, 2);
@@ -48,10 +47,6 @@ void PathPlaner::drawAvoidancePaths(cv::Mat &display, vector<RadiusPair> radiusR
         
         //Draw the maximum radius
         if (maxRad == 0) continue;
-        else if (maxRad > 1000){
-            line(display, Point(viewerLoc.x*pixelsPerMeter, 0), Point(viewerLoc.x*pixelsPerMeter, display.rows), curveColor, 2);
-            continue;
-        }
         curveCenter = Point((viewerLoc.x+maxRad)*pixelsPerMeter, display.rows);
         maxRad = abs(maxRad);
         circle(display, curveCenter, maxRad*pixelsPerMeter, curveColor, 2);
@@ -314,11 +309,11 @@ vector<RadiusPair> findValidRadiusesRanges(vector<RadiusPair> tangentRadiusesPai
         }
     }
     
-    /////////////////////////////////////////////////////////////////////////////////////////
-    //////////STEP 2: Add the first radius range, from -0.0001 to the block. ////////////////
-    /////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////STEP 2: Add the first radius range, from -PathPlaner::MINIMUM_RADIUS to the block. ////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
     RadiusPair newValidRange;
-    newValidRange.radius1 = -0.0001;
+    newValidRange.radius1 = - PathPlaner::MINIMUM_RADIUS;
     newValidRange.radius2 = firstRad;
     validRanges.push_back(newValidRange);
     if (tangentRadiusesPairs.size() == 1) {
@@ -326,7 +321,7 @@ vector<RadiusPair> findValidRadiusesRanges(vector<RadiusPair> tangentRadiusesPai
             newValidRange.radius1 = tangentRadiusesPairs.at(firstBlockIndex).radius1;
         else if(firstRad > 0)
             newValidRange.radius1 = tangentRadiusesPairs.at(firstBlockIndex).radius2;
-        newValidRange.radius2 = 0.0001;
+        newValidRange.radius2 = PathPlaner::MINIMUM_RADIUS;
         validRanges.push_back(newValidRange);
         return validRanges;
     }
@@ -357,7 +352,7 @@ vector<RadiusPair> findValidRadiusesRanges(vector<RadiusPair> tangentRadiusesPai
                 }
             }
             else if (r0 > 0){
-                if (r0 - r2 < smallestR1Diff) {
+                if (abs(r0) - abs(r2) < smallestR1Diff) {
                     smallestR1Diff = r0 - r2;
                     nextIdx = i;
                 }
@@ -383,16 +378,16 @@ vector<RadiusPair> findValidRadiusesRanges(vector<RadiusPair> tangentRadiusesPai
         RadiusPair nextRadRange;
         nextRadRange.radius1 = r0;
         if (nr2 < 0){
-            if (abs(nr2) - abs(r0) > 0){
+            if (abs(nr2) - abs(r0) > 0)
                 nextRadRange.radius2 = nr2;
-                validRanges.push_back(nextRadRange);
-            }
         }
         else{
-            if (r0 - nr1 > 0 || areDifferentSign(r0, nr1)){
+            if (r0 - nr1 > 0 || areDifferentSign(r0, nr1))
                 nextRadRange.radius2 = nr1;
-                validRanges.push_back(nextRadRange);
-            }
+        }
+        if (!(nextRadRange.radius1 > 0 && nextRadRange.radius2 < 0)){
+            //This condition solves a bug that occurred when two blocks from different sides of the scenarion were very close. The algorithm would validate an impossible path and thus provide corrupted data.
+            validRanges.push_back(nextRadRange);
         }
         currentIdx = nextIdx;
     }
@@ -400,7 +395,7 @@ vector<RadiusPair> findValidRadiusesRanges(vector<RadiusPair> tangentRadiusesPai
     float r01 = tangentRadiusesPairs.at(currentIdx).radius1;
     float r02 = tangentRadiusesPairs.at(currentIdx).radius2;
     lastRadRange.radius1 = r02 < 0 ? r01 : r02;
-    lastRadRange.radius2 = 0.0001;
+    lastRadRange.radius2 = PathPlaner::MINIMUM_RADIUS;
     validRanges.push_back(lastRadRange);
     return validRanges;
 }

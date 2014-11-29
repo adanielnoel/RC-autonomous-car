@@ -22,7 +22,7 @@ int main(int argc, char* argv[])
 	/*******************************************************************************************************
 	 * Main parameters                                                                                     *
 	 *******************************************************************************************************/
-
+    
 	// File and folder paths
 	string OUTPUT_FOLDER    = "/home/alejandro/Documents/eclipse_workspace/cv_1/Data/";
 	string CALIBRATION_FILE = "/home/alejandro/Documents/eclipse_workspace/cv_1/Data/stereo_calibration_parameters.yml";
@@ -33,7 +33,7 @@ int main(int argc, char* argv[])
 	//Stereo camera parameters
 	int STEREOCAM_LEFT_ID = 2;
 	int STEREOCAM_RIGHT_ID = 1;
-	int STEREOCAM_FRAME_RATE = 20;
+	int STEREOCAM_FRAME_RATE = 10;
 
 	//Stereo camera options
 	bool STEREOCAM_INIT = false;
@@ -98,7 +98,7 @@ int main(int argc, char* argv[])
         if (PATHSIM_RUN_AVOIDANCE) {
             float depth = 4;       //In meters
             float fov = 130;        //In meters
-            float squareSize = 0.10; //In meters
+            float squareSize = 0.20; //In meters
             Size windowSize(800, 0);//This is orientative and only the with will be considered
             Simulator simulator(depth, fov, Simulator::TYPE_AVOIDANCE, squareSize, windowSize);
             simulator.runSimulation();

@@ -20,9 +20,9 @@ StereoPair::StereoPair(int lCamId, int rCamId, int camFPS, string _calibrationFi
 	//Open and configure cameras
 	camL = VideoCapture();
 	camR = VideoCapture();
-	camL.open(lCamId);
-	camR.open(rCamId);
+    camL.open(lCamId);
     camL.set(CV_CAP_PROP_FPS, camFPS);
+	camR.open(rCamId);
     camR.set(CV_CAP_PROP_FPS, camFPS);
     //Check and print camera info
     Size imageSize;

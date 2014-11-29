@@ -47,6 +47,7 @@ class Simulator {
     void clearColumn(int column);
     void drawShadow(Point2i square);
     void drawGrid();
+    vector<vector<int>> initEmptyScen(int XSquares, int YSquares);
 public:
     static const int TYPE_AVOIDANCE;
     static const int TYPE_NAVIGATION;

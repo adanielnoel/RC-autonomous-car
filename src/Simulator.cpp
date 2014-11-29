@@ -23,9 +23,9 @@ const Scalar Simulator::COLOR_EMPTY    = Scalar(255, 255, 255);
 const Scalar Simulator::COLOR_OCCUPIED = Scalar(50, 50, 50);
 const Scalar Simulator::COLOR_POSITION = Scalar(50, 180, 50);
 const Scalar Simulator::COLOR_TARGET   = Scalar(50, 50, 180);
-const Scalar Simulator::COLOR_SHADOW   = Scalar(230, 230, 230);
-const Scalar Simulator::COLOR_GRID = Scalar(180, 180, 180);
-const Scalar Simulator::COLOR_SEPARATOR_LINE = Scalar(20, 20, 220);
+const Scalar Simulator::COLOR_SHADOW   = Scalar(255, 255, 255);
+const Scalar Simulator::COLOR_GRID = Scalar(215, 215, 215);
+const Scalar Simulator::COLOR_SEPARATOR_LINE = Scalar(50, 120, 200);
 const int Simulator::TYPE_AVOIDANCE = 0;
 const int Simulator::TYPE_NAVIGATION = 1;
 
@@ -55,13 +55,7 @@ Simulator::Simulator(float data1, float data2, int type, float squareSize, Size 
     }
     
     // Initialise an empty scenario
-    for(int x=0; x<XSquares; x++){
-        vector<int> newRow;
-        for(int y=0; y<YSquares; y++){
-            newRow.push_back(0);        //Initialize square with value 0 (empty)
-        }
-        scenario.push_back(newRow);
-    }
+    scenario = initEmptyScen(XSquares, YSquares);
     
     //Create window content
     ///Grid dimensions
@@ -72,6 +66,18 @@ Simulator::Simulator(float data1, float data2, int type, float squareSize, Size 
     int windowHeight = squarePixelSize*YSquares;
     display = Mat(windowHeight, windowWidth, CV_8UC3, COLOR_EMPTY);
     drawGrid();
+}
+
+vector<vector<int> > Simulator::initEmptyScen(int XSquares, int YSquares){
+    vector<vector<int> > scenario;
+    for(int x=0; x<XSquares; x++){
+        vector<int> newRow;
+        for(int y=0; y<YSquares; y++){
+            newRow.push_back(0);        //Initialize square with value 0 (empty)
+        }
+        scenario.push_back(newRow);
+    }
+    return scenario;
 }
 
 /*******************************************************************************************\
@@ -134,13 +140,14 @@ void Simulator::drawGrid(){
         line(display, Point(0, YOffset), Point(display.cols-1, YOffset), COLOR_GRID);
     }
     if (simulatorType == TYPE_AVOIDANCE) {
-        line(display, Point(ceil(display.cols/2), 0), Point(ceil(display.cols/2), display.rows-1), COLOR_SEPARATOR_LINE, 2);
+        //Draw vertical separator line
+        //line(display, Point(ceil(display.cols/2), 0), Point(ceil(display.cols/2), display.rows-1), COLOR_SEPARATOR_LINE, 2);
         //Draw FOV lines
         int halfDisplay = ceil(display.cols/2);
         float alpha = ((180-fov)/2)*M_PI / 180;
         int h = ceil(tan(180-alpha)*halfDisplay);
-        line(display, Point(halfDisplay, display.rows), Point(0, display.rows-h), COLOR_SEPARATOR_LINE, 2);
-        line(display, Point(halfDisplay, display.rows), Point(display.cols, display.rows-h), COLOR_SEPARATOR_LINE, 2);
+        line(display, Point(halfDisplay, display.rows), Point(0, display.rows-h), COLOR_SEPARATOR_LINE, 1.5);
+        line(display, Point(halfDisplay, display.rows), Point(display.cols, display.rows-h), COLOR_SEPARATOR_LINE, 1.5);
         
         ////////Draw a car////////////
         Mat carImg = imread("/Users/alejandrodanielnoel/Documents/XCode projects/Autonomous_Car/src/car_top.png");
@@ -219,7 +226,13 @@ void Simulator::avoidanceSimulator(bool autoEraseColumns = false){
             carImg.copyTo(displayROI);
             //////////////////////////////
             imshow("My Window", display);
-            waitKey(0);
+            int key = waitKey(0);
+            if (key == 114) {
+                scenario = initEmptyScen(XSquares, YSquares);
+                display = Mat(display.rows, display.cols, CV_8UC3, COLOR_EMPTY);
+                drawGrid();
+                avoidanceSimulator();
+            }
             if(pathRadius == 0) cout << "***NO SUITABLE PATH FOUND***" << endl;
             else {
                 if(pathRadius > 1000) cout << "Found a straight path." << endl;
