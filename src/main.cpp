@@ -7,17 +7,26 @@
 #include "opencv2/opencv.hpp"
 #include <stdio.h>
 #include <sys/stat.h>
+// Include DUO API header file
+#include <DUOLib.h>
 //#include "cv.h"   //To compile on Linux???
 #include "StereoPair.h"
 #include "Odometry.h"
 #include "Simulator.h"
 
+//#include "/Users/alejandrodanielnoel/DUO3D-SDK-v0.5.7-2.22/SDK/include/DUOLib.h"              // Include DUO API header file
+
+//#include "Sample.h"
+#define WIDTH	640
+#define HEIGHT	480
+#define FPS		30
 
 using namespace cv;
 using namespace std;
 
 int main(int argc, char* argv[])
 {
+ //	printf("DUOLib Version:       v%s\n", GetLibVersion());
 //Contraseña ordenador on-board: adaspwd
 	/*******************************************************************************************************
 	 * Main parameters                                                                                     *

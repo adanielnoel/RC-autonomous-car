@@ -204,7 +204,6 @@ vector<DMatch> Odometry::filteredMatch(vector<KeyPoint> kp1, vector<KeyPoint> kp
 
 void Odometry::showLRMatches(){
 	float epiHThres = 10000;	//set to very high number to take no effect
-	float epiWThres = 10000;//set to very high number to take no effect
 
 	Mat drawImg1;
     Mat drawImg2; //For own drawing function
