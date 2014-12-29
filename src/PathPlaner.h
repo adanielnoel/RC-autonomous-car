@@ -51,6 +51,7 @@ public:
     static const float MINIMUM_RADIUS;
 	PathPlaner();
 	virtual ~PathPlaner();
+    bool updateObstacleScenario(Mat dispImg);
     float findAvoidancePath(ObstacleScenario scenario, float initialCurveRadius, Mat &display, int squarePixelSize);
 	bool findNavigationPath(ObstacleScenario scenario, Point2i initialLocation, Point2i targetLocation);
 	Point expandRange();

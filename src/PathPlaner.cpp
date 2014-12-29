@@ -24,6 +24,11 @@ PathPlaner::~PathPlaner() {
 	// TODO Auto-generated destructor stub
 }
 
+bool PathPlaner::updateObstacleScenario(Mat dispImg){
+    
+    return false;
+}
+
 bool PathPlaner::findNavigationPath(ObstacleScenario scenario, Point2i initialLocation, Point2i targetLocation){
 
 	return false; //While this section is not written

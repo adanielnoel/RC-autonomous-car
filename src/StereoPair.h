@@ -6,9 +6,6 @@
  *   Objective:	This class will group all image based computations, such as:
  *   - Image rectification
  *   - Depth map generation
- *   - Key point extraction
- *   - Features generation
- *   - 3D block depth map generation (Minecraft style)
  */
 
 #include "opencv2/highgui/highgui.hpp"
@@ -18,6 +15,7 @@
 #include "opencv2/contrib/contrib.hpp"
 #include "opencv2/opencv.hpp"
 #include <stdio.h>
+#include <DUOLib.h>
 //#include "cv.h"
 
 #ifndef STEREOPAIR_H_
@@ -36,8 +34,10 @@ struct Rectification
 class StereoPair {
 
 	//Atributes
-	VideoCapture	camL;			// Left camera
-	VideoCapture	camR;			// right camera
+    int             width;
+    int             height;
+    int             fps;
+    bool            defaultCamera;  // If true, uses the OpenCV VideoCapture class. Otherwise uses the DUO3D API.
 	Rectification	recti;			// Rectification maps
 	StereoSGBM		sgbm;			// Disparity computation method
 	Mat				imgl;			// Rectified left image
@@ -46,31 +46,39 @@ class StereoPair {
 	Mat				img3D;			// Depth map
 	Mat				dispToDepthMat; //matrix from stereoRectify(..., Q, ...);
 	String			calibrationFile;//File path to the intrinsic and extrinsic parameters
-
 public:
+    ////////Web-cam///////
+    VideoCapture	camL;			// Left camera
+    VideoCapture	camR;			// right camera
+    /////DUO3D camera/////
+    static DUOInstance duoCam;      // DUO3D camera instance
+    static PDUOFrame   duoFrame;      // DUO3D stereo frame
+    //////////////////////
+    
 	//Constructors and destructors
 	StereoPair();			//TODO: default constructor does nothing!
-	StereoPair(int lCamId, int rCamId, int camFPS, string _calibrationFile, bool & success);
-	virtual ~StereoPair();
+	StereoPair(int lCamId, int rCamId, int _width, int _height, int camFPS, bool & success);
 
 	//Initialization methods
-	void setupRectification();
+	void setupRectification(String _calibrationFile = "");
 	void setupDisparity();
 
 	//Functions
 	Mat rectifyImage(const Mat& unrectifiedImage, const Rectification& recti, bool left);
+    bool updateUnrectifiedPair();
 	bool updateRectifiedPair();
-	void updateDisparityImg(float scaleFactor);
+    void updateDisparityImg(float scaleFactor, bool useRectifiedImages);
 	void updateImg3D();
+    void resizeImages(float scaleFactor);
 	Mat glueTwoImagesHorizontal(Mat Img1, Mat Img2);
 	Mat glueTwoImagesVertical(Mat Img1, Mat Img2);
 
 	//Utilities
 	void saveUncalibratedStereoImages(string outputFolder);		//on 's' key press saves stereo images. Useful to get chess board images.
 	void saveCalibratedStereoImages(string outputFolder);		//on 's' key press saves rectified images.
-	void displayDisparityMap(bool showImages = false, string outputFolder = "");
-	void RectificationViewer(string outputFolder = "");			//Shows rectified images side to side with horizontal lines.
-	void calibrate(bool showResult, string outputFolder = "");	//Calibrate camera intrinsics and extrinsics
+	void displayDisparityMap(bool showImages = false, string outputFolder = "", bool useRectifiedImages = true);
+	void rectificationViewer(string outputFolder = "");			//Shows rectified images side to side with horizontal lines.
+	void calibrate(bool showResult, String outputFile, string outputFolder = "");	//Calibrate camera intrinsics and extrinsics
 
 	//Get methods
 	Mat getDisparityImg();

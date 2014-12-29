@@ -14,8 +14,6 @@
 #include "Odometry.h"
 #include "Simulator.h"
 
-//#include "/Users/alejandrodanielnoel/DUO3D-SDK-v0.5.7-2.22/SDK/include/DUOLib.h"              // Include DUO API header file
-
 //#include "Sample.h"
 #define WIDTH	640
 #define HEIGHT	480
@@ -33,8 +31,8 @@ int main(int argc, char* argv[])
 	 *******************************************************************************************************/
     
 	// File and folder paths
-	string OUTPUT_FOLDER    = "/home/alejandro/Documents/eclipse_workspace/cv_1/Data/";
-	string CALIBRATION_FILE = "/home/alejandro/Documents/eclipse_workspace/cv_1/Data/stereo_calibration_parameters.yml";
+	string OUTPUT_FOLDER    = "/Users/alejandrodanielnoel/Documents/XCode projects/Autonomous_Car/data/";
+	string CALIBRATION_FILE = "/Users/alejandrodanielnoel/Documents/XCode projects/Autonomous_Car/data/stereo_calibration_parameters.yml";
 
 	//Main options
 	bool DO_LOOP = false; //This enables/disables the main loop
@@ -45,7 +43,9 @@ int main(int argc, char* argv[])
 	int STEREOCAM_FRAME_RATE = 10;
 
 	//Stereo camera options
-	bool STEREOCAM_INIT = false;
+	bool STEREOCAM_INIT = true;
+    bool STEREOCAM_DUO3D = true;
+    bool STEREOCAM_RECTIFY_IMAGES = false;
 	bool STEREOCAM_CALIBRATE = false;
 	bool STEREOCAM_SHOW_RECTIFICATION = false;
 	bool STEREOCAM_SAVE_UNCALIBRATED_PAIRS = false;
@@ -53,11 +53,11 @@ int main(int argc, char* argv[])
 	bool STEREOCAM_SHOW_DISPARITY_MAP = false;
 
 	//Odometry options
-	bool ODOMETRY_INIT = false;
+	bool ODOMETRY_INIT = true;
 	bool ODOMETRY_SHOW_MATCHES = true;
 
 	//Path planning simulator options
-	bool PATHSIM_INIT = true;
+	bool PATHSIM_INIT = false;
     bool PATHSIM_RUN_AVOIDANCE = true;
     bool PATHSIM_RUN_NAVIGATION = false;
 
@@ -70,18 +70,23 @@ int main(int argc, char* argv[])
 	 ********************************************************************************************************/
 	StereoPair stereo;
 	if(STEREOCAM_INIT){
-		bool initStereoSuccess;
-		stereo = StereoPair(STEREOCAM_LEFT_ID, STEREOCAM_RIGHT_ID, STEREOCAM_FRAME_RATE, CALIBRATION_FILE, initStereoSuccess);
+		bool initStereoSuccess = false;
+        if (STEREOCAM_DUO3D) {
+            stereo = StereoPair(0, 0, 640, 480, STEREOCAM_FRAME_RATE, initStereoSuccess);
+        }
+        else {
+            stereo = StereoPair(STEREOCAM_LEFT_ID, STEREOCAM_RIGHT_ID, 640, 480, STEREOCAM_FRAME_RATE, initStereoSuccess);
+        }
 		if(!initStereoSuccess){
 			cout << "\n**********FINNISHED WITH CAMERA INITIALIZATION ERROR*********" << endl;
 			return 1;
 		}
-
-		if(STEREOCAM_SHOW_RECTIFICATION)        stereo.RectificationViewer(OUTPUT_FOLDER);
-		if(STEREOCAM_CALIBRATE)                 stereo.calibrate(true, OUTPUT_FOLDER);
+        if(STEREOCAM_RECTIFY_IMAGES)            stereo.setupRectification(CALIBRATION_FILE);
+		if(STEREOCAM_SHOW_RECTIFICATION)        stereo.rectificationViewer(OUTPUT_FOLDER);
+		if(STEREOCAM_CALIBRATE)                 stereo.calibrate(true, CALIBRATION_FILE, OUTPUT_FOLDER);
 		if(STEREOCAM_SAVE_UNCALIBRATED_PAIRS)   stereo.saveUncalibratedStereoImages(OUTPUT_FOLDER);
 		if(STEREOCAM_SAVE_CALIBRATED_PAIRS)     stereo.saveCalibratedStereoImages(OUTPUT_FOLDER);
-		if(STEREOCAM_SHOW_DISPARITY_MAP)        stereo.displayDisparityMap(false, OUTPUT_FOLDER);
+		if(STEREOCAM_SHOW_DISPARITY_MAP)        stereo.displayDisparityMap(false, OUTPUT_FOLDER, STEREOCAM_RECTIFY_IMAGES);
 	}
 
 

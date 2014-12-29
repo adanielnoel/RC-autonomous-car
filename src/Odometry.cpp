@@ -7,7 +7,7 @@
 
 #include "Odometry.h"
 
-const float	Odometry::MAXIMUM_EPIPOLAR_DIFFERENCE = 5;
+const float	Odometry::MAXIMUM_EPIPOLAR_DIFFERENCE = 15;
 
 Odometry::Odometry(){
 	camera = new StereoPair();
@@ -30,7 +30,7 @@ Odometry::Odometry(StereoPair& _camera){
      * "Dense" – DenseFeatureDetector
      * "SimpleBlob" – SimpleBlobDetector
 	 */
-	detector = FeatureDetector::create("FAST");
+	detector = FeatureDetector::create("ORB");
 
 	/*
 	 * Create descriptor extractor. Types:
@@ -42,7 +42,7 @@ Odometry::Odometry(StereoPair& _camera){
      * "ORB" – ORB
      * "FREAK" – FREAK
 	 */
-	descriptor = DescriptorExtractor::create("BRIEF");
+	descriptor = DescriptorExtractor::create("ORB");
 
 	/*
 	 * Create feature matcher. Types:
@@ -53,7 +53,7 @@ Odometry::Odometry(StereoPair& _camera){
      * BruteForce-Hamming(2)
      * FlannBased
 	 */
-	matcher = DescriptorMatcher::create("BruteForce-Hamming(2)");
+	matcher = DescriptorMatcher::create("BruteForce");
 
 	camera = &_camera;
 }
@@ -198,12 +198,24 @@ vector<DMatch> Odometry::filteredMatch(vector<KeyPoint> kp1, vector<KeyPoint> kp
 	else{
 		matcher->match(desc1, desc2, FMatches);
 	}
+    
+    if (doEpipolarFilter) {
+        vector<DMatch> _FMatches;
+        for (unsigned int i = 0; i < FMatches.size(); i++) {
+            int id1 = FMatches.at(i).queryIdx;
+            int id2 = FMatches.at(i).trainIdx;
+            float hDiff = abs(kp1.at(id1).pt.y - kp2.at(id2).pt.y);
+            if (hDiff <= MAXIMUM_EPIPOLAR_DIFFERENCE) {
+                _FMatches.push_back(FMatches.at(i));
+            }
+        }
+        FMatches = _FMatches;
+    }
 
     return FMatches;
 }
 
 void Odometry::showLRMatches(){
-	float epiHThres = 10000;	//set to very high number to take no effect
 
 	Mat drawImg1;
     Mat drawImg2; //For own drawing function
@@ -223,13 +235,13 @@ void Odometry::showLRMatches(){
 
 		if(kpL.empty() || kpR.empty()) continue;
 
-		filteredMatches = filteredMatch(kpL, kpR, descL, descR, DO_CROSS_CHECK, true);
+		filteredMatches = filteredMatch(kpL, kpR, descL, descR, !DO_CROSS_CHECK, true);
 
 		if(filteredMatches.empty()) continue;
 
-        //drawMatches( imgL, kpL, imgR, kpR, filteredMatches, drawImg1, Scalar(0, 255, 0), Scalar(255, 0, 0));
+        drawMatches( imgL, kpL, imgR, kpR, filteredMatches, drawImg1, Scalar(0, 255, 0), Scalar(255, 0, 0));
 
-	        //OWN DRAWING FUNCTION
+	     /*   //OWN DRAWING FUNCTION
 
 	    drawImg2 = imgL.clone();
         cvtColor(drawImg2, drawImg2, CV_GRAY2RGB);
@@ -244,13 +256,13 @@ void Odometry::showLRMatches(){
 	        }
 	        else circle(drawImg2, point1, 2, Scalar(0, 0, 255));
 	    }
-
+*/
 
 		///////////////////////////////////////////////////////////////
 
 		namedWindow("Stereo matches", CV_WINDOW_NORMAL);
 
-		imshow("Stereo matches", drawImg2);
+		imshow("Stereo matches", drawImg1);
 
 		int keyPressed = waitKey(1);
 
