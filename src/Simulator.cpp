@@ -28,10 +28,16 @@ const Scalar Simulator::COLOR_GRID = Scalar(215, 215, 215);
 const Scalar Simulator::COLOR_SEPARATOR_LINE = Scalar(50, 120, 200);
 const int Simulator::TYPE_AVOIDANCE = 0;
 const int Simulator::TYPE_NAVIGATION = 1;
+const int Simulator::TYPE_NONE = 2;
 
 /*******************************************************************************************\
 |   Initialization                                                                          |
 \*******************************************************************************************/
+
+Simulator::Simulator(){
+    squarePixelSize = 40;
+    simulatorType = TYPE_NONE;
+}
 
 Simulator::Simulator(float data1, float data2, int type, float squareSize, Size _windowSize) {
     windowSize = _windowSize;
@@ -144,8 +150,8 @@ void Simulator::drawGrid(){
         //line(display, Point(ceil(display.cols/2), 0), Point(ceil(display.cols/2), display.rows-1), COLOR_SEPARATOR_LINE, 2);
         //Draw FOV lines
         int halfDisplay = ceil(display.cols/2);
-        float alpha = ((180-fov)/2)*M_PI / 180;
-        int h = ceil(tan(180-alpha)*halfDisplay);
+        float alpha = ((180-fov)*M_PI) / 360;
+        int h = ceil(tan(alpha)*halfDisplay);
         line(display, Point(halfDisplay, display.rows), Point(0, display.rows-h), COLOR_SEPARATOR_LINE, 1.5);
         line(display, Point(halfDisplay, display.rows), Point(display.cols, display.rows-h), COLOR_SEPARATOR_LINE, 1.5);
         
@@ -329,6 +335,41 @@ void Simulator::runSimulation(){
         avoidanceSimulator();
     else if (simulatorType == TYPE_NAVIGATION)
         navigationSimulator();
+}
+
+void Simulator::displayScenario(ObstacleScenario &obstacleScen, bool runPathPlanner){
+    bool obstaclesPresent = false;
+    simulatorType = TYPE_AVOIDANCE;
+    fov = 90;
+    namedWindow("Simulator", 1);
+    this->scenario = obstacleScen.scenario;
+    XSquares = scenario.size();
+    YSquares = scenario.at(1).size();
+    int windowWidth = squarePixelSize*XSquares;
+    int windowHeight = squarePixelSize*YSquares;
+    display = Mat(windowHeight, windowWidth, CV_8UC3, COLOR_EMPTY);
+    initEmptyScen(XSquares, YSquares);
+    
+    for (int i = 0; i<XSquares; i++) {
+        for (int j = 0; j < YSquares; j++) {
+            if (scenario.at(i).at(j) == 1) {
+                markSquare(1, Point2i(i, j));
+                obstaclesPresent = true;
+            }
+        }
+    }
+    cout << rand() << endl;
+    drawGrid();
+    
+    if (runPathPlanner && obstaclesPresent) {
+        PathPlaner planer;
+        float pathRadius;
+        pathRadius = planer.findAvoidancePath(obstacleScen, 10000, display, squarePixelSize);
+        imshow("Simulator", display);
+        waitKey();
+    }
+    //Update the simulator display
+    imshow("Simulator", display);
 }
 
 Simulator::~Simulator() {

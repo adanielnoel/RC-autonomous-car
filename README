@@ -1,6 +1,9 @@
 # Self Driving RC Car #
 The aim of this project is to develop an on-board computer vision system for an RC car to make it navigate autonomously in indoor and outdoor environments.
 
+##Version 0.3.2##
+Added obstacle detection (alpha) and avoidance. Different SGBM parameters for generic stereo cameras and DUO3D camera.
+
 ##Version 0.3##
 Added support for the DUO3D camera. Added option to use uncalibrated stereo cameras. Added makefile.
 

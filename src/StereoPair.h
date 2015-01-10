@@ -44,7 +44,7 @@ class StereoPair {
 	Mat				imgr;			// Rectified right image
 	Mat				dsp;			// Disparity map (not normalized)
 	Mat				img3D;			// Depth map
-	Mat				dispToDepthMat; //matrix from stereoRectify(..., Q, ...);
+	Mat				Q;              // camera matrix from stereoRectify(..., Q, ...);
 	String			calibrationFile;//File path to the intrinsic and extrinsic parameters
 public:
     ////////Web-cam///////
@@ -79,6 +79,8 @@ public:
 	void displayDisparityMap(bool showImages = false, string outputFolder = "", bool useRectifiedImages = true);
 	void rectificationViewer(string outputFolder = "");			//Shows rectified images side to side with horizontal lines.
 	void calibrate(bool showResult, String outputFile, string outputFolder = "");	//Calibrate camera intrinsics and extrinsics
+    void getPixel3Dcoords(int pixX, int pixY, double disp, float & x, float & y, float & z);
+    Mat reprojectTo3D(Mat disp);
 
 	//Get methods
 	Mat getDisparityImg();
@@ -93,9 +95,6 @@ public:
 		return imgl;
 	}
 
-	const Mat& getDispToDepthMat() const {
-		return dispToDepthMat;
-	}
 };
 
 

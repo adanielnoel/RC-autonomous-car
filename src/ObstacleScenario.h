@@ -8,18 +8,28 @@
 #ifndef OBSTACLESCENARIO_H_
 #define OBSTACLESCENARIO_H_
 
-//#include "cv.h"
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
+#include "opencv2/core/core.hpp"
+#include "opencv2/contrib/contrib.hpp"
+#include "opencv2/opencv.hpp"
+#include "StereoPair.h"
 
 using namespace cv;
 
 class ObstacleScenario {
 public:
-	int width;			//In meters
-	int height;			//In meters
+    StereoPair stereoPair;
+    Rect regionOfInterest; //This contains the region of the disparyty image used to populate the 2D map.
+	float width;			//In meters
+	float depth;			//In meters
 	float squareSize;	//In meters
 	vector< vector<int> > scenario; //A value of 0 means free, 1 means occupied
-	vector< vector<int> > path;
-	vector<Point2f> curvePath;
+    
+    ObstacleScenario();
+    ObstacleScenario(float _width, float _depth, float _squareSize);
+    void populateScenario(Mat dispImg);
+    void clearScenario();
 };
 
 #endif /* OBSTACLESCENARIO_H_ */

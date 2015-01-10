@@ -32,10 +32,10 @@ int main(int argc, char* argv[])
     
 	// File and folder paths
 	string OUTPUT_FOLDER    = "/Users/alejandrodanielnoel/Documents/XCode projects/Autonomous_Car/data/";
-	string CALIBRATION_FILE = "/Users/alejandrodanielnoel/Documents/XCode projects/Autonomous_Car/data/stereo_calibration_parameters.yml";
+	string CALIBRATION_FILE = "/Users/alejandrodanielnoel/Documents/XCode projects/Autonomous_Car/data/stereo_calibration_parameters.xml";
 
 	//Main options
-	bool DO_LOOP = false; //This enables/disables the main loop
+	bool DO_LOOP = true; //This enables/disables the main loop
 
 	//Stereo camera parameters
 	int STEREOCAM_LEFT_ID = 2;
@@ -45,15 +45,15 @@ int main(int argc, char* argv[])
 	//Stereo camera options
 	bool STEREOCAM_INIT = true;
     bool STEREOCAM_DUO3D = true;
-    bool STEREOCAM_RECTIFY_IMAGES = false;
 	bool STEREOCAM_CALIBRATE = false;
+    bool STEREOCAM_RECTIFY_IMAGES = true;
 	bool STEREOCAM_SHOW_RECTIFICATION = false;
 	bool STEREOCAM_SAVE_UNCALIBRATED_PAIRS = false;
 	bool STEREOCAM_SAVE_CALIBRATED_PAIRS = false;
 	bool STEREOCAM_SHOW_DISPARITY_MAP = false;
 
 	//Odometry options
-	bool ODOMETRY_INIT = true;
+	bool ODOMETRY_INIT = false;
 	bool ODOMETRY_SHOW_MATCHES = true;
 
 	//Path planning simulator options
@@ -68,25 +68,26 @@ int main(int argc, char* argv[])
 	 * Variable initStereoSuccess will be set to false if the method fails to load the cameras.             *
 	 * It is important to check if the camera indexes and frame rate are correct.                           *
 	 ********************************************************************************************************/
-	StereoPair stereo;
+	StereoPair stereoCam;
 	if(STEREOCAM_INIT){
 		bool initStereoSuccess = false;
         if (STEREOCAM_DUO3D) {
-            stereo = StereoPair(0, 0, 640, 480, STEREOCAM_FRAME_RATE, initStereoSuccess);
+            stereoCam = StereoPair(0, 0, 640, 480, STEREOCAM_FRAME_RATE, initStereoSuccess);
         }
         else {
-            stereo = StereoPair(STEREOCAM_LEFT_ID, STEREOCAM_RIGHT_ID, 640, 480, STEREOCAM_FRAME_RATE, initStereoSuccess);
+            stereoCam = StereoPair(STEREOCAM_LEFT_ID, STEREOCAM_RIGHT_ID, 640, 480, STEREOCAM_FRAME_RATE, initStereoSuccess);
         }
 		if(!initStereoSuccess){
 			cout << "\n**********FINNISHED WITH CAMERA INITIALIZATION ERROR*********" << endl;
 			return 1;
 		}
-        if(STEREOCAM_RECTIFY_IMAGES)            stereo.setupRectification(CALIBRATION_FILE);
-		if(STEREOCAM_SHOW_RECTIFICATION)        stereo.rectificationViewer(OUTPUT_FOLDER);
-		if(STEREOCAM_CALIBRATE)                 stereo.calibrate(true, CALIBRATION_FILE, OUTPUT_FOLDER);
-		if(STEREOCAM_SAVE_UNCALIBRATED_PAIRS)   stereo.saveUncalibratedStereoImages(OUTPUT_FOLDER);
-		if(STEREOCAM_SAVE_CALIBRATED_PAIRS)     stereo.saveCalibratedStereoImages(OUTPUT_FOLDER);
-		if(STEREOCAM_SHOW_DISPARITY_MAP)        stereo.displayDisparityMap(false, OUTPUT_FOLDER, STEREOCAM_RECTIFY_IMAGES);
+        bool showImages;
+        if(STEREOCAM_CALIBRATE)                 stereoCam.calibrate(true, CALIBRATION_FILE, OUTPUT_FOLDER);
+        if(STEREOCAM_RECTIFY_IMAGES)            stereoCam.setupRectification(CALIBRATION_FILE);
+        if(STEREOCAM_SHOW_RECTIFICATION)        stereoCam.rectificationViewer(OUTPUT_FOLDER);
+		if(STEREOCAM_SAVE_UNCALIBRATED_PAIRS)   stereoCam.saveUncalibratedStereoImages(OUTPUT_FOLDER);
+		if(STEREOCAM_SAVE_CALIBRATED_PAIRS)     stereoCam.saveCalibratedStereoImages(OUTPUT_FOLDER);
+		if(STEREOCAM_SHOW_DISPARITY_MAP)        stereoCam.displayDisparityMap(showImages = false, OUTPUT_FOLDER, STEREOCAM_RECTIFY_IMAGES);
 	}
 
 
@@ -101,7 +102,7 @@ int main(int argc, char* argv[])
 	 *********************************************************************************************************/
 	Odometry odometry;
 	if(ODOMETRY_INIT){
-		odometry = Odometry(stereo);
+		odometry = Odometry(stereoCam);
 		if(ODOMETRY_SHOW_MATCHES) odometry.showLRMatches();
 	}
 
@@ -110,8 +111,8 @@ int main(int argc, char* argv[])
 	 ********************************************************************************************************/
 	if(PATHSIM_INIT){
         if (PATHSIM_RUN_AVOIDANCE) {
-            float depth = 4;       //In meters
-            float fov = 130;        //In meters
+            float depth = 2;       //In meters
+            float fov = 90;        //In meters
             float squareSize = 0.20; //In meters
             Size windowSize(800, 0);//This is orientative and only the with will be considered
             Simulator simulator(depth, fov, Simulator::TYPE_AVOIDANCE, squareSize, windowSize);
@@ -131,6 +132,14 @@ int main(int argc, char* argv[])
 	 * Main loop                                                                                             *
 	 *********************************************************************************************************/
 
+    float scenWidth = 2.0;
+    float scenDepth = 2.0;
+    float squareSize = 0.2;
+    ObstacleScenario obstacleScenario(scenWidth, scenDepth, squareSize);
+    obstacleScenario.stereoPair = stereoCam;
+    obstacleScenario.regionOfInterest = Rect(0, 0, 80, 80);
+    Simulator simulator = Simulator();
+    
 	while(DO_LOOP){
 		if(ODOMETRY_INIT)
 			odometry.updateOdometry();
@@ -143,6 +152,10 @@ int main(int argc, char* argv[])
 			cout << "Exiting program" << endl;
 			break;
 		}
+        stereoCam.updateRectifiedPair();
+        stereoCam.updateDisparityImg(0.5, true);
+        obstacleScenario.populateScenario(stereoCam.getDisparityImg());
+        simulator.displayScenario(obstacleScenario, true);
 	}
 	cout << "\n*****FINNISHED*****" << endl;
     return 0;

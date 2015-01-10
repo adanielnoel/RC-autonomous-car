@@ -51,10 +51,13 @@ class Simulator {
 public:
     static const int TYPE_AVOIDANCE;
     static const int TYPE_NAVIGATION;
+    static const int TYPE_NONE;
+    Simulator();
 	Simulator(float data1, float data2, int type, float squareSize, Size _windowSize);	//Use real world measures
 	void runSimulation();
     void avoidanceSimulator(bool autoEraseColumns);
     void navigationSimulator();
+    void displayScenario(ObstacleScenario &obstacleScen, bool runPathPlanner);
 	virtual ~Simulator();
 };
 

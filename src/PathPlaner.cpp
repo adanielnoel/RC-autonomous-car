@@ -9,7 +9,7 @@
 
 
 const float PathPlaner::WAYPOINT_DIST = 0.3;
-const float PathPlaner::MINIMUM_RADIUS = 1;
+const float PathPlaner::MINIMUM_RADIUS = 1.0;
 const float PathPlaner::HALF_VEHICLE_WIDTH = 0.38   ;
 const Scalar PathPlaner::COLOR_PATH = Scalar(30, 150, 30);
 const Scalar PathPlaner::COLOR_PATH_LIMITS = Scalar(0, 150, 33);
@@ -29,7 +29,7 @@ bool PathPlaner::updateObstacleScenario(Mat dispImg){
     return false;
 }
 
-bool PathPlaner::findNavigationPath(ObstacleScenario scenario, Point2i initialLocation, Point2i targetLocation){
+bool PathPlaner::findNavigationPath(ObstacleScenario &scenario, Point2i initialLocation, Point2i targetLocation){
 
 	return false; //While this section is not written
 }
@@ -287,7 +287,7 @@ bool areDifferentSign(float val1, float val2){
  * 25/11/2014: Debugged and working as expected.                                             *
  *********************************************************************************************/
 
-vector<RadiusPair> findValidRadiusesRanges(vector<RadiusPair> tangentRadiusesPairs){
+vector<RadiusPair> findValidRadiusesRanges(vector<RadiusPair> &tangentRadiusesPairs){
     vector<RadiusPair> validRanges;
     
     ///////////////////////////////////////////////////////////////////////////////////
@@ -338,7 +338,7 @@ vector<RadiusPair> findValidRadiusesRanges(vector<RadiusPair> tangentRadiusesPai
     /////////////////////////////////////////////////////////////////////////////////////////
 
     int currentIdx = firstBlockIndex;
-    int lastValidIdx = -1;
+    int lastValidIdx = 0;
     float smallestPositiveRad = 10000;
     float biggestNegativeRad = 0;
     while (true) {
@@ -425,7 +425,7 @@ vector<RadiusPair> findValidRadiusesRanges(vector<RadiusPair> tangentRadiusesPai
 
 
 
-float PathPlaner::findAvoidancePath(ObstacleScenario scenario, float initialCurveRadius, Mat &display, int squarePixelSize){
+float PathPlaner::findAvoidancePath(ObstacleScenario &scenario, float initialCurveRadius, Mat &display, int squarePixelSize){
     //If the initial curve radius is greather than 1000, the curve is considered a straight line
     pixelsPerMeter = (int)squarePixelSize/scenario.squareSize;
     squareSize = scenario.squareSize;

@@ -55,7 +55,7 @@ StereoPair::StereoPair(int lCamId, int rCamId, int _width, int _height, int camF
         cvNamedWindow("Right");
         
         // Set exposure and LED brightness
-        SetExposure(100);
+        SetExposure(8);
         SetLed(0);
     }
     
@@ -69,18 +69,35 @@ StereoPair::StereoPair(int lCamId, int rCamId, int _width, int _height, int camF
 // \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
 
 void StereoPair::setupDisparity(){
-	sgbm = StereoSGBM();
-	sgbm.SADWindowSize = 11;
-	sgbm.numberOfDisparities = 18*16;
-	sgbm.preFilterCap = 27;
-	sgbm.minDisparity = 0;
-	sgbm.uniquenessRatio = 10;
-	sgbm.speckleWindowSize = 16;
-	sgbm.speckleRange = 60;
-	sgbm.disp12MaxDiff = -80;
-	sgbm.fullDP = false;
-	sgbm.P1 = 8*sgbm.SADWindowSize*sgbm.SADWindowSize;
-	sgbm.P2 = 32*sgbm.SADWindowSize*sgbm.SADWindowSize;
+    if (defaultCamera) {
+        sgbm = StereoSGBM();
+        sgbm.SADWindowSize = 11;
+        sgbm.numberOfDisparities = 18*16;
+        sgbm.preFilterCap = 27;
+        sgbm.minDisparity = 0;
+        sgbm.uniquenessRatio = 10;
+        sgbm.speckleWindowSize = 16;
+        sgbm.speckleRange = 60;
+        sgbm.disp12MaxDiff = -80;
+        sgbm.fullDP = false;
+        sgbm.P1 = 8*sgbm.SADWindowSize*sgbm.SADWindowSize;
+        sgbm.P2 = 32*sgbm.SADWindowSize*sgbm.SADWindowSize;
+    }
+    
+    else{
+        sgbm = StereoSGBM();
+        sgbm.SADWindowSize = 9;
+        sgbm.numberOfDisparities = 9*16;
+        sgbm.preFilterCap = 63;
+        sgbm.minDisparity = 0;
+        sgbm.uniquenessRatio = 10;
+        sgbm.speckleWindowSize = -100;
+        sgbm.speckleRange = -2;
+        sgbm.disp12MaxDiff = -1;
+        sgbm.fullDP = true;
+        sgbm.P1 = 216;
+        sgbm.P2 = 864;
+    }
 }
 
 // ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -94,7 +111,7 @@ void StereoPair::setupRectification(String _calibrationFile)
         return;
     }
     calibrationFile = _calibrationFile;
-	Mat R1, R2, P1, P2, Q;
+	Mat R1, R2, P1, P2;
 	Mat rmap[2][2];
 	Rect validRoi[2];
 
@@ -119,9 +136,6 @@ void StereoPair::setupRectification(String _calibrationFile)
 		stereoRectify(cameraMatrix0, distCoeffs0, cameraMatrix1, distCoeffs1, imageSize, RInitial, TInitial, R1, R2, P1, P2, Q, CALIB_ZERO_DISPARITY, 0, imageSize, &validRoi[0], &validRoi[1]);
 		initUndistortRectifyMap(cameraMatrix0, distCoeffs0, R1, P1, imageSize, CV_16SC2, rmap[0][0], rmap[0][1]);
 		initUndistortRectifyMap(cameraMatrix1, distCoeffs1, R2, P2, imageSize, CV_16SC2, rmap[1][0], rmap[1][1]);
-
-		//"dispToDepthMat" is used to convert disparity images into depth maps.
-		dispToDepthMat = Q;
 
 		// Save the rectification mappings
 		recti.K = P1;
@@ -348,7 +362,7 @@ void StereoPair::updateDisparityImg(float scaleFactor, bool useRectifiedImages){
 // \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
 
 void StereoPair::updateImg3D(){
-	reprojectImageTo3D(dsp, img3D, dispToDepthMat, true, CV_32F);
+	reprojectImageTo3D(dsp, img3D, Q, true, CV_32F);
 }
 
 // ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -501,44 +515,72 @@ void StereoPair::saveCalibratedStereoImages(string outputFolder){
 
 void StereoPair::displayDisparityMap(bool showImages, string outputFolder, bool useRectifiedImages){
 	namedWindow("Disparity", CV_WINDOW_NORMAL);
-	float scaleFactor = 0.5;
-	int whiteThreshold = 200;
+	namedWindow("Controls", CV_WINDOW_NORMAL);
+    if (showImages) {
+        namedWindow("Left — Right", CV_WINDOW_NORMAL);
+    }
+    /*
+     sgbm.SADWindowSize = 9;
+     sgbm.numberOfDisparities = 144;
+     sgbm.preFilterCap = 63;
+     sgbm.minDisparity = 0;
+     sgbm.uniquenessRatio = 10;
+     sgbm.speckleWindowSize = 100;
+     sgbm.speckleRange = 32;
+     sgbm.disp12MaxDiff = 1;
+     sgbm.fullDP = false;
+     sgbm.P1 = 216;
+     sgbm.P2 = 864;
+     */
+    createTrackbar("SADWindowSize", "Controls", &sgbm.SADWindowSize, 50);
+  //  createTrackbar("numberOfDisparities", "Controls", &sgbm.numberOfDisparities, 1000);
+    createTrackbar("preFilterCap", "Controls", &sgbm.preFilterCap, 100);
+    createTrackbar("minDisparity", "Controls", &sgbm.minDisparity, 100);
+    createTrackbar("uniquenessRatio", "Controls", &sgbm.uniquenessRatio, 100);
+    createTrackbar("speckleWindowSize", "Controls", &sgbm.speckleWindowSize, 300);
+    createTrackbar("speckleRange", "Controls", &sgbm.speckleRange, 100);
+    createTrackbar("disp12MaxDiff", "Controls", &sgbm.disp12MaxDiff, 100);
+    createTrackbar("P1", "Controls", &sgbm.P1, 3000);
+    createTrackbar("P2", "Controls", &sgbm.P2, 10000);
+
+	float scaleFactor = 0.4;
+	int whiteThreshold = 230;
 	int frameID = 0;
 	while(1){
 		if (useRectifiedImages) this->updateRectifiedPair();
         else                    this->updateUnrectifiedPair();
 		this->updateDisparityImg(scaleFactor, useRectifiedImages);
-		Mat d1, d2, dispNorm = getDisparityImgNormalised();
 
 		if(showImages){
-			d1 = glueTwoImagesHorizontal(imgl, imgr);
-			d2 = glueTwoImagesHorizontal(d1, dispNorm);
+			Mat d1 = glueTwoImagesHorizontal(imgl, imgr);
+            imshow("Left — Right", d1);
 		}
-		else d2 = dispNorm;
-        for( int i = 0; i < d2.rows; ++i){
-            for( int j = 0; j < d2.cols; ++j ){
-            	Scalar intensity = d2.at<uchar>(Point(j, i));
+		Mat dispNorm = getDisparityImgNormalised();
+       /* for( int i = 0; i < dispNorm.rows; ++i){
+            for( int j = 0; j < dispNorm.cols; ++j ){
+            	Scalar intensity = dispNorm.at<uchar>(Point(j, i));
             	if(intensity.val[0] > whiteThreshold){
-            		d2.at<uchar>(Point(j, i)) = 0;
+            		dispNorm.at<uchar>(Point(j, i)) = 0;
             	}
             }
-    	}
+    	}*/
 		//cvtColor(d2, d2, CV_GRAY2RGB );
 		//cvtColor(d2, d2, CV_BGR2HSV );
 
-		imshow("Disparity", d2);
+        //resize(dispNorm, dispNorm, Size(), 1/scaleFactor, 1/scaleFactor, INTER_CUBIC);
+		imshow("Disparity", dispNorm);
 
 		// Wait for key press
 		int keyPressed = waitKey(20);
 
-		// Save the images if required
+		// Save the images if required (press 's' or 'S')
 		if( (keyPressed== 83 || keyPressed==115) && !outputFolder.empty())
 		{
 			char fileName[256];
 			sprintf(fileName, "%sdepthMap_%d.png", outputFolder.c_str(), frameID);
 
 			try {
-				imwrite(fileName, d2);
+				imwrite(fileName, dispNorm);
 			}
 			catch (runtime_error& ex) {
 				fprintf(stderr, "Exception converting image to PNG format: %s \n", ex.what());
@@ -549,7 +591,7 @@ void StereoPair::displayDisparityMap(bool showImages, string outputFolder, bool 
 		// Exit when esc key is pressed
         if( keyPressed== 27) break;
 	}
-	destroyWindow("Disparity");
+    destroyAllWindows();
 }
 
 // ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -561,7 +603,7 @@ void StereoPair::calibrate(bool showResult, String outputFile, String outputFold
 	///////////INITIAL PARAMETERS//////////////
 	Size boardSize = Size(9, 6);	//Inner board corners
 	float squareSize = 1.f;			//The actual square size, in any unit
-	int nimages = 5;				//Number of images to take for calibration
+	int nimages = 10;				//Number of images to take for calibration
     const int maxScale = 2;
 
     vector<vector<Point2f> > imagePoints[2];
@@ -803,4 +845,32 @@ void StereoPair::calibrate(bool showResult, String outputFile, String outputFold
     this->setupRectification(outputFolder);
 
     if(showResult)this->rectificationViewer();
+}
+
+void StereoPair::getPixel3Dcoords(int pixX, int pixY, double disp, float & x, float & y, float & z){
+    //Get the interesting parameters from Q
+    double Q03, Q13, Q23, Q32, Q33;
+    Q03 = Q.at<double>(0,3);
+    Q13 = Q.at<double>(1,3);
+    Q23 = Q.at<double>(2,3);
+    Q32 = Q.at<double>(3,2);
+    Q33 = Q.at<double>(3,3);
+    
+    //std::cout << "Q(0,3) = "<< Q03 <<"; Q(1,3) = "<< Q13 <<"; Q(2,3) = "<< Q23 <<"; Q(3,2) = "<< Q32 <<"; Q(3,3) = "<< Q33 <<";" << std::endl;
+
+    if ( disp == 0 ) return; //Discard bad pixels
+    double pw = -1.0 * static_cast<double>(disp) * Q32 + Q33;
+    x = static_cast<double>(pixX) + Q03;
+    y = static_cast<double>(pixY) + Q13;
+    z = Q23;
+    
+    x = x/pw;
+    y = y/pw;
+    z = z/pw;
+}
+
+Mat StereoPair::reprojectTo3D(Mat disp){
+    Mat image3D;
+    reprojectImageTo3D(disp, image3D, Q);
+    return image3D;
 }
