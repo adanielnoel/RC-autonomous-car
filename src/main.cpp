@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
 	string CALIBRATION_FILE = "/Users/alejandrodanielnoel/Documents/XCode projects/Autonomous_Car/data/stereo_calibration_parameters.xml";
 
 	//Main options
-	bool DO_LOOP = true; //This enables/disables the main loop
+	bool DO_LOOP = false; //This enables/disables the main loop
 
 	//Stereo camera parameters
 	int STEREOCAM_LEFT_ID = 2;
@@ -43,11 +43,11 @@ int main(int argc, char* argv[])
 	int STEREOCAM_FRAME_RATE = 10;
 
 	//Stereo camera options
-	bool STEREOCAM_INIT = true;
+	bool STEREOCAM_INIT = false;
     bool STEREOCAM_DUO3D = true;
-	bool STEREOCAM_CALIBRATE = false;
     bool STEREOCAM_RECTIFY_IMAGES = true;
-	bool STEREOCAM_SHOW_RECTIFICATION = false;
+	bool STEREOCAM_CALIBRATE = true;
+	bool STEREOCAM_SHOW_RECTIFICATION = true;
 	bool STEREOCAM_SAVE_UNCALIBRATED_PAIRS = false;
 	bool STEREOCAM_SAVE_CALIBRATED_PAIRS = false;
 	bool STEREOCAM_SHOW_DISPARITY_MAP = false;
@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
 	bool ODOMETRY_SHOW_MATCHES = true;
 
 	//Path planning simulator options
-	bool PATHSIM_INIT = false;
+	bool PATHSIM_INIT = true;
     bool PATHSIM_RUN_AVOIDANCE = true;
     bool PATHSIM_RUN_NAVIGATION = false;
 
@@ -132,9 +132,9 @@ int main(int argc, char* argv[])
 	 * Main loop                                                                                             *
 	 *********************************************************************************************************/
 
-    float scenWidth = 2.0;
+    float scenWidth = 3.0;
     float scenDepth = 2.0;
-    float squareSize = 0.2;
+    float squareSize = 0.1;
     ObstacleScenario obstacleScenario(scenWidth, scenDepth, squareSize);
     obstacleScenario.stereoPair = stereoCam;
     obstacleScenario.regionOfInterest = Rect(0, 0, 80, 80);

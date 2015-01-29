@@ -55,7 +55,7 @@ StereoPair::StereoPair(int lCamId, int rCamId, int _width, int _height, int camF
         cvNamedWindow("Right");
         
         // Set exposure and LED brightness
-        SetExposure(8);
+        SetExposure(3);
         SetLed(0);
     }
     
@@ -115,9 +115,11 @@ void StereoPair::setupRectification(String _calibrationFile)
 	Mat rmap[2][2];
 	Rect validRoi[2];
 
+    rectificationCorrect = false; // initialize flag
+    
 	// Open calibration file
 	FileStorage fs(calibrationFile, FileStorage::READ);
-
+    
 	// Read calibration file
 	if(!fs.isOpened())
 		cout << "Calibration file was not found" << endl;
@@ -136,7 +138,9 @@ void StereoPair::setupRectification(String _calibrationFile)
 		stereoRectify(cameraMatrix0, distCoeffs0, cameraMatrix1, distCoeffs1, imageSize, RInitial, TInitial, R1, R2, P1, P2, Q, CALIB_ZERO_DISPARITY, 0, imageSize, &validRoi[0], &validRoi[1]);
 		initUndistortRectifyMap(cameraMatrix0, distCoeffs0, R1, P1, imageSize, CV_16SC2, rmap[0][0], rmap[0][1]);
 		initUndistortRectifyMap(cameraMatrix1, distCoeffs1, R2, P2, imageSize, CV_16SC2, rmap[1][0], rmap[1][1]);
-
+        
+        rectificationCorrect = true;
+        
 		// Save the rectification mappings
 		recti.K = P1;
 		recti.B = P2.at<double>(0, 3) / P2.at<double>(0, 0);
@@ -297,11 +301,14 @@ bool StereoPair::updateUnrectifiedPair(){
 
 bool StereoPair::updateRectifiedPair()
 {
-    if (not updateUnrectifiedPair()) return false;
-
-    if (calibrationFile.empty()) {
+    //Get the images
+    if (!updateUnrectifiedPair()){ // If the images where not retrieved, print error.
+        cout << "Error: Could not get any image from the camera." << endl;
+        return false;
+    }
+    if (!rectificationCorrect) {
         cout << "Images not rectified because camera calibration file was not found." << endl;
-        return true;
+        return false;
     }
     
 	// Rectify the frames
@@ -476,7 +483,16 @@ void StereoPair::saveCalibratedStereoImages(string outputFolder){
     {
     	this->updateRectifiedPair();
     	Mat LR = glueTwoImagesHorizontal(imgl, imgr);
-    	imshow("Calibrated stereo images", LR);
+        
+        //draw lines
+        for(int h=0; h<LR.rows; h+=25)
+        {
+            Point pt1(0, h);
+            Point pt2(LR.cols, h);
+            line(LR, pt1, pt2, CV_RGB(255, 0, 0), 1);
+        }
+    	
+        imshow("Calibrated stereo images", LR);
 		// Wait for key press
 		int keyPressed = waitKey(20);
 
@@ -603,7 +619,7 @@ void StereoPair::calibrate(bool showResult, String outputFile, String outputFold
 	///////////INITIAL PARAMETERS//////////////
 	Size boardSize = Size(9, 6);	//Inner board corners
 	float squareSize = 1.f;			//The actual square size, in any unit
-	int nimages = 10;				//Number of images to take for calibration
+	int nimages = 3;				//Number of images to take for calibration
     const int maxScale = 2;
 
     vector<vector<Point2f> > imagePoints[2];
@@ -619,7 +635,6 @@ void StereoPair::calibrate(bool showResult, String outputFile, String outputFold
     Mat frameLR;
     Mat cornerLR;
 	namedWindow("Live calibration view", CV_WINDOW_NORMAL);
-	namedWindow("Corners", CV_WINDOW_NORMAL);
 	Size WindowResize;
 
 	int i, j, k, frameID = 0;
@@ -842,7 +857,7 @@ void StereoPair::calibrate(bool showResult, String outputFile, String outputFold
     else cout << "CALIBRATION ERROR: Cannot save calibration results to file" << endl;
 
    //////////Once parameters are saved, reinitialize rectification from them////////////////
-    this->setupRectification(outputFolder);
+    this->setupRectification(outputFile);
 
     if(showResult)this->rectificationViewer();
 }

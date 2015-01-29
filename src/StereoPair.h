@@ -46,6 +46,7 @@ class StereoPair {
 	Mat				img3D;			// Depth map
 	Mat				Q;              // camera matrix from stereoRectify(..., Q, ...);
 	String			calibrationFile;//File path to the intrinsic and extrinsic parameters
+    bool            rectificationCorrect;
 public:
     ////////Web-cam///////
     VideoCapture	camL;			// Left camera

@@ -9,7 +9,7 @@
 
 
 const float PathPlaner::WAYPOINT_DIST = 0.3;
-const float PathPlaner::MINIMUM_RADIUS = 1.0;
+const float PathPlaner::MINIMUM_RADIUS = 0.1;
 const float PathPlaner::HALF_VEHICLE_WIDTH = 0.38   ;
 const Scalar PathPlaner::COLOR_PATH = Scalar(30, 150, 30);
 const Scalar PathPlaner::COLOR_PATH_LIMITS = Scalar(0, 150, 33);

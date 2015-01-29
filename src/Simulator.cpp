@@ -35,7 +35,7 @@ const int Simulator::TYPE_NONE = 2;
 \*******************************************************************************************/
 
 Simulator::Simulator(){
-    squarePixelSize = 40;
+    squarePixelSize = 30;
     simulatorType = TYPE_NONE;
 }
 
@@ -358,7 +358,7 @@ void Simulator::displayScenario(ObstacleScenario &obstacleScen, bool runPathPlan
             }
         }
     }
-    cout << rand() << endl;
+    //cout << rand() << endl;
     drawGrid();
     
     if (runPathPlanner && obstaclesPresent) {
