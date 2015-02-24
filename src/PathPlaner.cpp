@@ -1,8 +1,9 @@
 /*
  * PathPlaner.cpp
  *
- *  Created on: Sep 1, 2014
- *      Author: alejandro
+ *  Created on: Jul 26, 2014
+ *     Author: Alejandro Daniel Noel
+ *     Page: http://futuretechmaker.com
  */
 
 #include "PathPlaner.h"

@@ -2,8 +2,9 @@
 //  ObstacleScenario.cpp
 //  Autonomous_RC_Car
 //
-//  Created by Alejandro Daniel Noel on 07/01/15.
-//
+//  Created on: Jul 26, 2014
+//     Author: Alejandro Daniel Noel
+//     Page: http://futuretechmaker.com
 //
 
 #include <stdio.h>
@@ -51,7 +52,7 @@ void ObstacleScenario::populateScenario(Mat dispImg){
             if (useCustomReprojectionMethod){
                 double disp = dispImg.at<double>(Point(i, j));
                 if (disp < 0.1) continue;
-                stereoPair.getPixel3Dcoords(i, j, disp, x, y, z);
+                Point3f pt = stereoPair.getPixel3Dcoords(i, j, disp);
             }
             else {
                 Vec3f point = image3D.at<Vec3f>(Point(i, j));

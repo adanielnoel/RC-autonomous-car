@@ -79,8 +79,8 @@ public:
 	void saveCalibratedStereoImages(string outputFolder);		//on 's' key press saves rectified images.
 	void displayDisparityMap(bool showImages = false, string outputFolder = "", bool useRectifiedImages = true);
 	void rectificationViewer(string outputFolder = "");			//Shows rectified images side to side with horizontal lines.
-	void calibrate(bool showResult, String outputFile, string outputFolder = "");	//Calibrate camera intrinsics and extrinsics
-    void getPixel3Dcoords(int pixX, int pixY, double disp, float & x, float & y, float & z);
+	void calibrate(String outputFile, string outputFolder = "");	//Calibrate camera intrinsics and extrinsics
+    Point3f getPixel3Dcoords(int pixX, int pixY, double disp);
     Mat reprojectTo3D(Mat disp);
 
 	//Get methods

@@ -2,7 +2,8 @@
  * StereoPair.cpp
  *
  *  Created on: Jul 26, 2014
- *      Author: nicolau
+ *      Author: Alejandro Daniel Noel
+ *      Page: http://futuretechmaker.com
  */
 
 
@@ -50,18 +51,18 @@ StereoPair::StereoPair(int lCamId, int rCamId, int _width, int _height, int camF
             printf("Could not open DUO camera\n");
             success = false;
         }
+        else success = true;
         // Create OpenCV windows
         cvNamedWindow("Left");
         cvNamedWindow("Right");
         
         // Set exposure and LED brightness
-        SetExposure(3);
+        SetExposure(12);
         SetLed(0);
     }
     
 	//Setup Semi Global Block Matching object
 	this->setupDisparity();
-    success = true;
 }
 
 // ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -87,16 +88,16 @@ void StereoPair::setupDisparity(){
     else{
         sgbm = StereoSGBM();
         sgbm.SADWindowSize = 9;
-        sgbm.numberOfDisparities = 9*16;
-        sgbm.preFilterCap = 63;
+        sgbm.numberOfDisparities = 144;
+        sgbm.preFilterCap = 100;
         sgbm.minDisparity = 0;
-        sgbm.uniquenessRatio = 10;
-        sgbm.speckleWindowSize = -100;
-        sgbm.speckleRange = -2;
-        sgbm.disp12MaxDiff = -1;
-        sgbm.fullDP = true;
-        sgbm.P1 = 216;
-        sgbm.P2 = 864;
+        sgbm.uniquenessRatio = 0;
+        sgbm.speckleWindowSize = 0;
+        sgbm.speckleRange = 0;
+        sgbm.disp12MaxDiff = 100;
+        sgbm.fullDP = false;
+        sgbm.P1 = 220;
+        sgbm.P2 = 4153;
     }
 }
 
@@ -222,7 +223,7 @@ void StereoPair::rectificationViewer(string outputFolder)
 		{
 			Point pt1(0, h);
 			Point pt2(LR.cols, h);
-			line(LR, pt1, pt2, CV_RGB(255, 0, 0), 1);
+			line(LR, pt1, pt2, CV_RGB(255, 123, 47), 1);
 		}
 
 		// Show the image
@@ -559,7 +560,7 @@ void StereoPair::displayDisparityMap(bool showImages, string outputFolder, bool 
     createTrackbar("P1", "Controls", &sgbm.P1, 3000);
     createTrackbar("P2", "Controls", &sgbm.P2, 10000);
 
-	float scaleFactor = 0.4;
+	float scaleFactor = 0.6;
 	int whiteThreshold = 230;
 	int frameID = 0;
 	while(1){
@@ -614,12 +615,12 @@ void StereoPair::displayDisparityMap(bool showImages, string outputFolder, bool 
 // |||||||||||||||||||||||||||||||||||||||calibrate||||||||||||||||||||||||||||||||||||||||||||||
 // \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
 
-void StereoPair::calibrate(bool showResult, String outputFile, String outputFolder){
+void StereoPair::calibrate(String outputFile, String outputFolder){
 
 	///////////INITIAL PARAMETERS//////////////
 	Size boardSize = Size(9, 6);	//Inner board corners
 	float squareSize = 1.f;			//The actual square size, in any unit
-	int nimages = 3;				//Number of images to take for calibration
+	int nimages = 16;				//Number of images to take for calibration
     const int maxScale = 2;
 
     vector<vector<Point2f> > imagePoints[2];
@@ -858,11 +859,23 @@ void StereoPair::calibrate(bool showResult, String outputFile, String outputFold
 
    //////////Once parameters are saved, reinitialize rectification from them////////////////
     this->setupRectification(outputFile);
-
-    if(showResult)this->rectificationViewer();
+    this->rectificationViewer();
 }
 
-void StereoPair::getPixel3Dcoords(int pixX, int pixY, double disp, float & x, float & y, float & z){
+Point3f StereoPair::getPixel3Dcoords(int pixX, int pixY, double disp){
+    /*//////////////3D points from stereo matches///////////////
+     Mat Q = camera->getDispToDepthMat();
+     float X = pixX * Q.at<double>(0, 0) + Q.at<double>(0, 3);
+     float Y = pixY * Q.at<double>(1, 1) + Q.at<double>(1, 3);
+     float Z = Q.at<double>(2, 3);
+     float W = disp * Q.at<double>(3, 2) + Q.at<double>(3, 3);
+     X /= W;
+     Y /= W;
+     Z /= W;
+     
+     Point3f pt3(X, Y, Z);
+     ///////////////////////////////////////////////////////////*/
+    
     //Get the interesting parameters from Q
     double Q03, Q13, Q23, Q32, Q33;
     Q03 = Q.at<double>(0,3);
@@ -875,13 +888,14 @@ void StereoPair::getPixel3Dcoords(int pixX, int pixY, double disp, float & x, fl
 
     if ( disp == 0 ) return; //Discard bad pixels
     double pw = -1.0 * static_cast<double>(disp) * Q32 + Q33;
-    x = static_cast<double>(pixX) + Q03;
-    y = static_cast<double>(pixY) + Q13;
-    z = Q23;
+    float x = static_cast<double>(pixX) + Q03;
+    float y = static_cast<double>(pixY) + Q13;
+    float z = Q23;
     
     x = x/pw;
     y = y/pw;
     z = z/pw;
+    return Point3f(x, y, z);
 }
 
 Mat StereoPair::reprojectTo3D(Mat disp){

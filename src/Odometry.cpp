@@ -1,8 +1,9 @@
 /*
  * Odometry.cpp
  *
- *  Created on: Jul 29, 2014
- *      Author: alejandro
+ *  Created on: Jul 26, 2014
+ *     Author: Alejandro Daniel Noel
+ *     Page: http://futuretechmaker.com
  */
 
 #include "Odometry.h"
@@ -241,7 +242,7 @@ void Odometry::showLRMatches(){
 
         drawMatches( imgL, kpL, imgR, kpR, filteredMatches, drawImg1, Scalar(0, 255, 0), Scalar(255, 0, 0));
 
-	     /*   //OWN DRAWING FUNCTION
+       /* //OWN DRAWING FUNCTION
 
 	    drawImg2 = imgL.clone();
         cvtColor(drawImg2, drawImg2, CV_GRAY2RGB);
@@ -250,7 +251,7 @@ void Odometry::showLRMatches(){
 	    for(unsigned int i=0; i<filteredMatches.size(); i++){
 	    	Point2f point1 = kpL[filteredMatches[i].queryIdx].pt;
 	    	Point2f point2 = kpR[filteredMatches[i].trainIdx].pt;
-	    	if(abs(point1.y - point2.y)<=epiHThres){
+	    	if(abs(point1.y - point2.y) <= MAXIMUM_EPIPOLAR_DIFFERENCE){
 	    		circle(drawImg2, point1, 2, Scalar(0, 255, 0));
 	    		line(drawImg2, point1, point2, Scalar(255, 0, 0));
 	        }

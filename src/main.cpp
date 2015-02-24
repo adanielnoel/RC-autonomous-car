@@ -1,3 +1,11 @@
+//
+//
+//  Created on: Jul 26, 2014
+//     Author: Alejandro Daniel Noel
+//     Page: http://futuretechmaker.com
+//
+
+
 //#include "stdafx.h" //To compile on Windows
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
@@ -13,8 +21,8 @@
 #include "StereoPair.h"
 #include "Odometry.h"
 #include "Simulator.h"
+#include "arduino_serial_lib.c"
 
-//#include "Sample.h"
 #define WIDTH	640
 #define HEIGHT	480
 #define FPS		30
@@ -30,36 +38,45 @@ int main(int argc, char* argv[])
 	 * Main parameters                                                                                     *
 	 *******************************************************************************************************/
     
+    /*ArduinoInterface ardu;
+    ardu.sendData();
+    return 0;*/
 	// File and folder paths
-	string OUTPUT_FOLDER    = "/Users/alejandrodanielnoel/Documents/XCode projects/Autonomous_Car/data/";
-	string CALIBRATION_FILE = "/Users/alejandrodanielnoel/Documents/XCode projects/Autonomous_Car/data/stereo_calibration_parameters.xml";
+	const string OUTPUT_FOLDER    = "/Users/alejandrodanielnoel/Documents/XCode projects/Autonomous_Car/data/";
+	const string CALIBRATION_FILE = "/Users/alejandrodanielnoel/Documents/XCode projects/Autonomous_Car/data/stereo_calibration_parameters.xml";
+    const string ARDUINO_SERIAL_PORT = "/dev/tty.usbmodem411";
+    const int ARDUINO_BAUDRATE = 9600;
 
 	//Main options
-	bool DO_LOOP = false; //This enables/disables the main loop
+	const bool DO_LOOP = false; //This enables/disables the main loop
 
 	//Stereo camera parameters
-	int STEREOCAM_LEFT_ID = 2;
-	int STEREOCAM_RIGHT_ID = 1;
-	int STEREOCAM_FRAME_RATE = 10;
+	const int STEREOCAM_LEFT_ID = 2;
+	const int STEREOCAM_RIGHT_ID = 1;
+	const int STEREOCAM_FRAME_RATE = 10;
 
 	//Stereo camera options
-	bool STEREOCAM_INIT = false;
-    bool STEREOCAM_DUO3D = true;
-    bool STEREOCAM_RECTIFY_IMAGES = true;
-	bool STEREOCAM_CALIBRATE = true;
-	bool STEREOCAM_SHOW_RECTIFICATION = true;
-	bool STEREOCAM_SAVE_UNCALIBRATED_PAIRS = false;
-	bool STEREOCAM_SAVE_CALIBRATED_PAIRS = false;
-	bool STEREOCAM_SHOW_DISPARITY_MAP = false;
+	const bool STEREOCAM_INIT = false;
+    const bool STEREOCAM_DUO3D = true;
+    const bool STEREOCAM_RECTIFY_IMAGES = true;
+	const bool STEREOCAM_CALIBRATE = false;
+	const bool STEREOCAM_SHOW_RECTIFICATION = false;
+	const bool STEREOCAM_SAVE_UNCALIBRATED_PAIRS = false;
+	const bool STEREOCAM_SAVE_CALIBRATED_PAIRS = false;
+	const bool STEREOCAM_SHOW_DISPARITY_MAP = false;
 
 	//Odometry options
-	bool ODOMETRY_INIT = false;
-	bool ODOMETRY_SHOW_MATCHES = true;
+	const bool ODOMETRY_INIT = false;
+	const bool ODOMETRY_SHOW_MATCHES = true;
 
 	//Path planning simulator options
-	bool PATHSIM_INIT = true;
-    bool PATHSIM_RUN_AVOIDANCE = true;
-    bool PATHSIM_RUN_NAVIGATION = false;
+	const bool PATHSIM_INIT = false;
+    const bool PATHSIM_RUN_AVOIDANCE = true;
+    const bool PATHSIM_RUN_NAVIGATION = false;
+    
+    //Arduino communication options
+    const bool ARDUINO_INIT_SERIAL_COMMUNICATION = true;
+    const bool ARDUINO_PERFORM_HAND_SHAKE = true;
 
 
 	/********************************************************************************************************
@@ -82,7 +99,7 @@ int main(int argc, char* argv[])
 			return 1;
 		}
         bool showImages;
-        if(STEREOCAM_CALIBRATE)                 stereoCam.calibrate(true, CALIBRATION_FILE, OUTPUT_FOLDER);
+        if(STEREOCAM_CALIBRATE)                 stereoCam.calibrate(CALIBRATION_FILE, OUTPUT_FOLDER);
         if(STEREOCAM_RECTIFY_IMAGES)            stereoCam.setupRectification(CALIBRATION_FILE);
         if(STEREOCAM_SHOW_RECTIFICATION)        stereoCam.rectificationViewer(OUTPUT_FOLDER);
 		if(STEREOCAM_SAVE_UNCALIBRATED_PAIRS)   stereoCam.saveUncalibratedStereoImages(OUTPUT_FOLDER);
@@ -113,7 +130,7 @@ int main(int argc, char* argv[])
         if (PATHSIM_RUN_AVOIDANCE) {
             float depth = 2;       //In meters
             float fov = 90;        //In meters
-            float squareSize = 0.20; //In meters
+            float squareSize = 0.15; //In meters
             Size windowSize(800, 0);//This is orientative and only the with will be considered
             Simulator simulator(depth, fov, Simulator::TYPE_AVOIDANCE, squareSize, windowSize);
             simulator.runSimulation();
@@ -127,6 +144,39 @@ int main(int argc, char* argv[])
             simulator.runSimulation();
         }
 	}
+    
+    /*********************************************************************************************************
+     * Arduino serial communication                                                                          *
+     *********************************************************************************************************/
+    if (ARDUINO_INIT_SERIAL_COMMUNICATION) {
+        int fd = -1;
+        fd = serialport_init(ARDUINO_SERIAL_PORT.c_str(), ARDUINO_BAUDRATE);
+        if( fd==-1 ){
+            cout << "ARDUINO ERROR: Couldn't open port" << endl;
+            exit(EXIT_FAILURE);
+        }
+        serialport_flush(fd);
+        
+        if (ARDUINO_PERFORM_HAND_SHAKE) {
+            // Sending a string
+            string helloString = "Hello Arduino!";
+            int buf_max = 256;
+            char buf[buf_max];
+            sprintf(buf, "%s\n", helloString.c_str());
+            cout << "- Writing to arduino...";
+            int rc = serialport_write(fd, buf);
+            if(rc==-1) cout << " error writing" << endl;
+            else cout << " done" << endl;
+  
+            // Receiving a string
+            memset(buf,0,buf_max); //Set all buffer to 0
+            cout << "- Reading from arduino..." << endl;
+            const int timeout = 1000;
+            serialport_read_until(fd, buf, '\n', buf_max, timeout);
+            string message = buf;
+            cout << "Message: " << message << endl;
+        }
+    }
 
 	/*********************************************************************************************************
 	 * Main loop                                                                                             *
