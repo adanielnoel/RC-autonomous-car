@@ -1,6 +1,12 @@
 # Self Driving RC Car
 The aim of this project is to develop an on-board computer vision system for an RC car to make it navigate autonomously in indoor and outdoor environments.
 - - -
+##Version 0.5
+Added PCL library support for 3D point-cloud visualisation.
+Added a class for communicating with Arduino.
+Streamlined calibration procedure for real-time calibration pattern detection.
+Corrected several bugs in the custom reprojection method.
+Many other bugs were also corrected.
 
 ##Version 0.3.5
 Added Arduino serial communication (platform-independent).

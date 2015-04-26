@@ -14,12 +14,21 @@
 #include "opencv2/core/core.hpp"
 #include "opencv2/contrib/contrib.hpp"
 #include "opencv2/opencv.hpp"
+
+
+#include "pcl/common/common_headers.h"
+#include "pcl/io/pcd_io.h"
+#include "pcl/visualization/pcl_visualizer.h"
+#include "boost/thread/thread.hpp"
+
+
 #include <stdio.h>
 #include <DUOLib.h>
 //#include "cv.h"
 
 #ifndef STEREOPAIR_H_
 #define STEREOPAIR_H_
+
 
 using namespace cv;
 using namespace std;
@@ -47,7 +56,12 @@ class StereoPair {
 	Mat				Q;              // camera matrix from stereoRectify(..., Q, ...);
 	String			calibrationFile;//File path to the intrinsic and extrinsic parameters
     bool            rectificationCorrect;
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer3D;
+    
 public:
+    ///////Public class constants/////////
+    static const bool USE_CUSTOM_REPROJECTION_METHOD;
+    
     ////////Web-cam///////
     VideoCapture	camL;			// Left camera
     VideoCapture	camR;			// right camera
@@ -68,8 +82,8 @@ public:
 	Mat rectifyImage(const Mat& unrectifiedImage, const Rectification& recti, bool left);
     bool updateUnrectifiedPair();
 	bool updateRectifiedPair();
-    void updateDisparityImg(float scaleFactor, bool useRectifiedImages);
-	void updateImg3D();
+    void updateDisparityImg(float scaleFactor);
+	void updateImg3D(bool useCustomMethod);
     void resizeImages(float scaleFactor);
 	Mat glueTwoImagesHorizontal(Mat Img1, Mat Img2);
 	Mat glueTwoImagesVertical(Mat Img1, Mat Img2);
@@ -82,6 +96,7 @@ public:
 	void calibrate(String outputFile, string outputFolder = "");	//Calibrate camera intrinsics and extrinsics
     Point3f getPixel3Dcoords(int pixX, int pixY, double disp);
     Mat reprojectTo3D(Mat disp);
+    void run3DVisualizer();
 
 	//Get methods
 	Mat getDisparityImg();

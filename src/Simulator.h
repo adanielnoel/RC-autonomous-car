@@ -4,21 +4,23 @@
  *  Created on: Sep 1, 2014
  *      Author: alejandro
  */
+
+#ifndef SIMULATOR_H_
+#define SIMULATOR_H_
+
+#include <stdio.h>
+#include <cmath>
+
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/core/core.hpp"
 #include "opencv2/contrib/contrib.hpp"
 #include "opencv2/opencv.hpp"
-#include <stdio.h>
 //#include "cv.h"
-#include <cmath>
 
 #include "ObstacleScenario.h"
 #include "PathPlaner.h"
-
-#ifndef SIMULATOR_H_
-#define SIMULATOR_H_
 
 using namespace std;
 using namespace cv;
@@ -33,13 +35,6 @@ class Simulator {
 	static const Scalar COLOR_GRID;
     static const Scalar COLOR_SEPARATOR_LINE;
     
-    int simulatorType;
-    float fov;  //Used only for avoidance simulator
-    float depth;//Used only for avoidance simulator
-    vector< vector<int> > scenario;
-    float squareRealSize;
-    int squarePixelSize;
-    Mat display;
 	int XSquares;
 	int YSquares;	//in square count
 	Size windowSize;
@@ -48,16 +43,26 @@ class Simulator {
     void drawShadow(Point2i square);
     void drawGrid();
     vector<vector<int> > initEmptyScen(int XSquares, int YSquares);
+
 public:
     static const int TYPE_AVOIDANCE;
     static const int TYPE_NAVIGATION;
     static const int TYPE_NONE;
+    
+    int simulatorType;
+    float fov;  //Used only for avoidance simulator
+    float depth;//Used only for avoidance simulator
+    vector< vector<int> > scenario;
+    float squareRealSize;
+    int squarePixelSize;
+    Mat display;
+    
     Simulator();
 	Simulator(float data1, float data2, int type, float squareSize, Size _windowSize);	//Use real world measures
 	void runSimulation();
     void avoidanceSimulator(bool autoEraseColumns);
     void navigationSimulator();
-    void displayScenario(ObstacleScenario &obstacleScen, bool runPathPlanner);
+    Mat drawScenario(ObstacleScenario &obstacleScen);
 	virtual ~Simulator();
 };
 

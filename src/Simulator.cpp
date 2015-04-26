@@ -338,8 +338,8 @@ void Simulator::runSimulation(){
         navigationSimulator();
 }
 
-void Simulator::displayScenario(ObstacleScenario &obstacleScen, bool runPathPlanner){
-    bool obstaclesPresent = false;
+Mat Simulator::drawScenario(ObstacleScenario &obstacleScen){
+    // bool obstaclesPresent = false;
     simulatorType = TYPE_AVOIDANCE;
     fov = 90;
     namedWindow("Simulator", 1);
@@ -355,22 +355,13 @@ void Simulator::displayScenario(ObstacleScenario &obstacleScen, bool runPathPlan
         for (int j = 0; j < YSquares; j++) {
             if (scenario.at(i).at(j) == 1) {
                 markSquare(1, Point2i(i, j));
-                obstaclesPresent = true;
             }
         }
     }
-    //cout << rand() << endl;
     drawGrid();
     
-    if (runPathPlanner && obstaclesPresent) {
-        PathPlaner planer;
-        float pathRadius;
-        pathRadius = planer.findAvoidancePath(obstacleScen, 10000, display, squarePixelSize);
-        imshow("Simulator", display);
-        waitKey();
-    }
     //Update the simulator display
-    imshow("Simulator", display);
+    return display;
 }
 
 Simulator::~Simulator() {

@@ -16,7 +16,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 // Include DUO API header file
-#include <DUOLib.h>
+#include "DUOLib.h"
 //#include "cv.h"   //To compile on Linux???
 #include "StereoPair.h"
 #include "Odometry.h"
@@ -34,16 +34,14 @@ int main(int argc, char* argv[])
 {
  //	printf("DUOLib Version:       v%s\n", GetLibVersion());
 //Contraseña ordenador on-board: adaspwd
-	/*******************************************************************************************************
+	
+    /*******************************************************************************************************
 	 * Main parameters                                                                                     *
 	 *******************************************************************************************************/
     
-    /*ArduinoInterface ardu;
-    ardu.sendData();
-    return 0;*/
 	// File and folder paths
-	const string OUTPUT_FOLDER    = "/Users/alejandrodanielnoel/Documents/XCode projects/Autonomous_Car/data/";
-	const string CALIBRATION_FILE = "/Users/alejandrodanielnoel/Documents/XCode projects/Autonomous_Car/data/stereo_calibration_parameters.xml";
+	const string OUTPUT_FOLDER    = "/Users/alejandrodanielnoel1/Desktop/";
+	const string CALIBRATION_FILE = "/Users/alejandrodanielnoel1/Documents/XCode\ projects/Autonomous_Car/data/stereo_calibration_parameters.xml";
     const string ARDUINO_SERIAL_PORT = "/dev/tty.usbmodem411";
     const int ARDUINO_BAUDRATE = 9600;
 
@@ -56,13 +54,13 @@ int main(int argc, char* argv[])
 	const int STEREOCAM_FRAME_RATE = 10;
 
 	//Stereo camera options
-	const bool STEREOCAM_INIT = false;
+	const bool STEREOCAM_INIT = true;
     const bool STEREOCAM_DUO3D = true;
     const bool STEREOCAM_RECTIFY_IMAGES = true;
 	const bool STEREOCAM_CALIBRATE = false;
 	const bool STEREOCAM_SHOW_RECTIFICATION = false;
 	const bool STEREOCAM_SAVE_UNCALIBRATED_PAIRS = false;
-	const bool STEREOCAM_SAVE_CALIBRATED_PAIRS = false;
+	const bool STEREOCAM_SAVE_CALIBRATED_PAIRS = true;
 	const bool STEREOCAM_SHOW_DISPARITY_MAP = false;
 
 	//Odometry options
@@ -75,7 +73,7 @@ int main(int argc, char* argv[])
     const bool PATHSIM_RUN_NAVIGATION = false;
     
     //Arduino communication options
-    const bool ARDUINO_INIT_SERIAL_COMMUNICATION = true;
+    const bool ARDUINO_INIT_SERIAL_COMMUNICATION = false;
     const bool ARDUINO_PERFORM_HAND_SHAKE = true;
 
 
@@ -186,27 +184,45 @@ int main(int argc, char* argv[])
     float scenDepth = 2.0;
     float squareSize = 0.1;
     ObstacleScenario obstacleScenario(scenWidth, scenDepth, squareSize);
-    obstacleScenario.stereoPair = stereoCam;
-    obstacleScenario.regionOfInterest = Rect(0, 0, 80, 80);
+    obstacleScenario.regionOfInterest = Rect(0, 0, 80, 80);  //Region of the disparity map to convert into depth map
     Simulator simulator = Simulator();
     
 	while(DO_LOOP){
-		if(ODOMETRY_INIT)
-			odometry.updateOdometry();
-
-		//Program stops when user presses ESC key
-		//If no window is open, this won't work
-		int keyPressed = waitKey(30);
-		if( keyPressed== 27)
-		{
-			cout << "Exiting program" << endl;
-			break;
-		}
+        ////////////////Camera update////////////////////
         stereoCam.updateRectifiedPair();
-        stereoCam.updateDisparityImg(0.5, true);
-        obstacleScenario.populateScenario(stereoCam.getDisparityImg());
-        simulator.displayScenario(obstacleScenario, true);
+        stereoCam.updateDisparityImg(1);
+        stereoCam.updateImg3D(true);
+        /////////////Obstacle map update/////////////////
+        Mat image3D = stereoCam.getImg3D();
+        imshow("image3D", image3D);
+        waitKey(0);
+        bool obstaclesDetected = false;
+        obstacleScenario.populateScenario(image3D, obstaclesDetected);
+        ///////////Display internal update///////////////
+        Mat display = simulator.drawScenario(obstacleScenario);
+        ////////////Avoidance path update////////////////
+        float newCurveRadius = 10000.0; // In meters. 10000 means infinity (straight path)
+        if (obstaclesDetected) {
+            PathPlaner planer;
+            newCurveRadius = planer.findAvoidancePath(obstacleScenario, 10000, display, simulator.squarePixelSize);
+        }
+        ///////////////Display update////////////////////
+        imshow("Simulator", display);
+        //////////////Display point cloud////////////////
+        //if(obstaclesDetected){
+            //stereoCam.run3DVisualizer();
+        //}
+        
+        //Program stops when user presses ESC key
+        //If no window is open, this won't work
+        int keyPressed = waitKey(30);
+        if( keyPressed== 27)
+        {
+            cout << "Exiting program" << endl;
+            break;
+        }
 	}
+    
 	cout << "\n*****FINNISHED*****" << endl;
     return 0;
 }

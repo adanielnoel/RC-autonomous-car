@@ -11,6 +11,31 @@
 #include "DUO3D_camera.h"
 #include <DUOLib.h>
 
+float mapValue(float val, float min1, float max1, float min2, float max2){
+    bool invertRet = false;
+    if (min2 > max2) {
+        float tmpMin = min2;
+        max2 = min2;
+        min2 = tmpMin;
+        invertRet = true;
+    }
+    if (invertRet) return (max2 - (((val - min1) * max2) / max1) - min2);
+    else return ((((val - min1) * max2) / max1) - min2);
+}
+
+float constrain(float val, float min, float max){
+    if (min > max) {
+        float tmp = max;
+        max = min;
+        min = tmp;
+    }
+    if (val < min) val = min;
+    else if (val > max) val = max;
+    return val;
+}
+
+
+const bool StereoPair::USE_CUSTOM_REPROJECTION_METHOD = true;
 
 StereoPair::StereoPair() {
 	// TODO Auto-generated constructor stub
@@ -57,7 +82,7 @@ StereoPair::StereoPair(int lCamId, int rCamId, int _width, int _height, int camF
         cvNamedWindow("Right");
         
         // Set exposure and LED brightness
-        SetExposure(12);
+        SetExposure(4);
         SetLed(0);
     }
     
@@ -86,18 +111,17 @@ void StereoPair::setupDisparity(){
     }
     
     else{
-        sgbm = StereoSGBM();
-        sgbm.SADWindowSize = 9;
-        sgbm.numberOfDisparities = 144;
-        sgbm.preFilterCap = 100;
-        sgbm.minDisparity = 0;
-        sgbm.uniquenessRatio = 0;
-        sgbm.speckleWindowSize = 0;
-        sgbm.speckleRange = 0;
-        sgbm.disp12MaxDiff = 100;
-        sgbm.fullDP = false;
-        sgbm.P1 = 220;
-        sgbm.P2 = 4153;
+        sgbm.SADWindowSize = 5;
+        sgbm.numberOfDisparities = 192;
+        sgbm.preFilterCap = 9;
+        sgbm.minDisparity = 5;
+        sgbm.uniquenessRatio = 18;
+        sgbm.speckleWindowSize = 83;
+        sgbm.speckleRange = 95;
+        sgbm.disp12MaxDiff = 25;
+        sgbm.fullDP = true;
+        sgbm.P1 = 240;
+        sgbm.P2 = 2339;
     }
 }
 
@@ -134,13 +158,26 @@ void StereoPair::setupRectification(String _calibrationFile)
 		fs["distCoeffs1"] >> distCoeffs1;
 		fs["R"] >> RInitial;
 		fs["T"] >> TInitial;
-
+        
 		// Compute rectification mappings
 		stereoRectify(cameraMatrix0, distCoeffs0, cameraMatrix1, distCoeffs1, imageSize, RInitial, TInitial, R1, R2, P1, P2, Q, CALIB_ZERO_DISPARITY, 0, imageSize, &validRoi[0], &validRoi[1]);
 		initUndistortRectifyMap(cameraMatrix0, distCoeffs0, R1, P1, imageSize, CV_16SC2, rmap[0][0], rmap[0][1]);
 		initUndistortRectifyMap(cameraMatrix1, distCoeffs1, R2, P2, imageSize, CV_16SC2, rmap[1][0], rmap[1][1]);
         
         rectificationCorrect = true;
+        
+        /*
+        calibrationFile = "/Users/alejandrodanielnoel1/Desktop/q.xml";
+        FileStorage fs(calibrationFile.c_str(), CV_STORAGE_WRITE);
+        if( fs.isOpened() )
+        {
+            cout << "Saving Q" << endl;
+            fs << "Q" << Q;
+            fs.release();
+            cout << "Parameters saved" << endl;
+        }
+         */
+        
         
 		// Save the rectification mappings
 		recti.K = P1;
@@ -290,8 +327,9 @@ bool StereoPair::updateUnrectifiedPair(){
         newFrameR = right;
     }
     
-    imgl = newFrameL;
-    imgr = newFrameR;
+    // For some reason, DUO3D left frame is right and vice-versa!!!
+    imgr = newFrameL;
+    imgl = newFrameR;
     
     return true;
 }
@@ -343,12 +381,8 @@ void StereoPair::resizeImages(float scaleFactor){
 // |||||||||||||||||||||||||||||||||||updateDisparityImg||||||||||||||||||||||||||||||||||||||||||
 // \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
 
-void StereoPair::updateDisparityImg(float scaleFactor, bool useRectifiedImages){
+void StereoPair::updateDisparityImg(float scaleFactor){
 	Mat imL, imR, rimgl, rimgr;
-    if (useRectifiedImages) {
-        imL = imgl;
-        imR = imgr;
-    }
     /*
      * RESIZE INTERPOLATION METHODS
      *
@@ -365,12 +399,116 @@ void StereoPair::updateDisparityImg(float scaleFactor, bool useRectifiedImages){
     sgbm(rimgl, rimgr, dsp);
 }
 
+
+ // This function was used for testing and requires Point Cloud library.
+ // It has been commented out to make distribution easier.
+ 
+void StereoPair::run3DVisualizer(){
+    //Create point cloud and fill it
+    std::cout << "Creating Point Cloud..." <<std::endl;
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
+    float minZ = 1000000, maxZ = 0;
+    for(int i = 0; i < img3D.cols; i++){
+        for(int j = 0; j < img3D.rows; j++){
+            pcl::PointXYZRGB point;
+            point.x = float(img3D.at<Vec3f>(j, i).val[0]*100.0);
+            point.y = float(img3D.at<Vec3f>(j, i).val[1]*100.0);
+            point.z = float(img3D.at<Vec3f>(j, i).val[2]*100.0);
+            if(point.z < minZ) minZ = point.z;
+            if (point.z > maxZ) maxZ = point.z;
+            
+            point_cloud_ptr->points.push_back(point);
+            //cout << "X: " << point.x << "   Y: " << point.y << "   Z: " << point.z << endl;
+        }
+    }
+    for(unsigned int i = 0; i < point_cloud_ptr->size(); i++){
+        float pz = point_cloud_ptr->at(i).z;
+        uint8_t r(255 - constrain(mapValue(pz, minZ, maxZ, 0, 255), 0, 255));
+        uint8_t g(constrain(mapValue(pz, minZ, maxZ, 0, 255), 0, 255));
+        uint8_t b(15);
+        uint32_t rgb = (static_cast<uint32_t>(r) << 16 |
+                        static_cast<uint32_t>(g) << 8 | static_cast<uint32_t>(b));
+        point_cloud_ptr->at(i).rgb = *reinterpret_cast<float*>(&rgb);
+    }
+    point_cloud_ptr->width = (int) point_cloud_ptr->points.size();
+    point_cloud_ptr->height = 1;
+    
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
+    viewer->setBackgroundColor (1, 1, 1);
+    pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb(point_cloud_ptr);
+    viewer->addPointCloud<pcl::PointXYZRGB>(point_cloud_ptr, rgb, "reconstruction");
+    viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "reconstruction");
+    viewer->addCoordinateSystem ( 1.0 );
+    viewer->initCameraParameters ();
+    
+    while ( !viewer->wasStopped())
+    {
+        viewer->spinOnce(100);
+        boost::this_thread::sleep (boost::posix_time::microseconds (500000));
+        int keyPressed = waitKey(10);
+        if (keyPressed==27){
+            viewer->close();
+        }
+    }
+}
+
 // ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // |||||||||||||||||||||||||||||||||||||||updateImg3D||||||||||||||||||||||||||||||||||||||||||||
 // \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
 
-void StereoPair::updateImg3D(){
-	reprojectImageTo3D(dsp, img3D, Q, true, CV_32F);
+void StereoPair::updateImg3D(bool useCustomMethod){
+    img3D = Mat(dsp.size(), CV_32FC3);
+    if (useCustomMethod) {
+        //Get the interesting parameters from Q
+        double Q03, Q13, Q23, Q32, Q33;
+        Q03 = Q.at<double>(0,3);
+        Q13 = Q.at<double>(1,3);
+        Q23 = Q.at<double>(2,3);
+        Q32 = Q.at<double>(3,2);
+        Q33 = Q.at<double>(3,3);
+        
+        double px, py, pz;
+        Mat dspn = this->getDisparityImgNormalised();
+        double minX = 10000000, maxX = 0;
+        double minY = 10000000, maxY = 0;
+        double minZ = 10000000, maxZ = 0;
+        for (int i = 0; i < dspn.rows; i++)
+        {
+            uchar* disp_ptr = dspn.ptr<uchar>(i);
+
+            for (int j = 0; j < dspn.cols; j++)
+            {
+                //Get 3D coordinates
+                double d = static_cast<double>(disp_ptr[j]);
+                if ( d == 0 ) continue; //Discard bad pixels
+                double pw = 1.0 * d * Q32 + Q33;
+                px = static_cast<double>(j) + Q03;
+                py = static_cast<double>(i) + Q13;
+                pz = Q23;
+                
+                px = px/pw;
+                py = py/pw;
+                pz = pz/pw;
+                if (pz == 0) continue;
+                if (pz > 0.3) continue;
+                //if (px > 1.0 || px < 1.0) continue;
+                //if (py > 1.0 || py < 1.0) continue;
+                if(px < minX) minX = px;
+                else if (px > maxX) maxX = px;
+                if(py < minY) minY = py;
+                else if (py > maxY) maxY = py;
+                if(pz < minZ) minZ = pz;
+                else if (pz > maxZ) maxZ = pz;
+                img3D.at<Vec3f>(i, j).val[0] = px;
+                img3D.at<Vec3f>(i, j).val[1] = -1*py;
+                img3D.at<Vec3f>(i, j).val[2] = pz;
+            }
+        }
+        cout << "minX: " << minX << "   maxX: " << maxX << endl;
+        cout << "minY: " << minY << "   maxY: " << maxY << endl;
+        cout << "minZ: " << minZ << "   maxZ: " << maxZ << endl;
+    }
+    else reprojectImageTo3D(dsp, img3D, Q);//, true, CV_32FC3);
 }
 
 // ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -423,7 +561,7 @@ void StereoPair::saveUncalibratedStereoImages(string outputFolder)
         {
             Point pt1(0, h);
             Point pt2(LR.cols, h);
-            line(LR, pt1, pt2, CV_RGB(255, 0, 0), 1);
+            line(LR, pt1, pt2, CV_RGB(255, 123, 47), 1);
         }
 
     	imshow("Uncalibrated stereo images", LR);
@@ -434,14 +572,14 @@ void StereoPair::saveUncalibratedStereoImages(string outputFolder)
 		// Save the images if 's' or 'S' key has been pressed
 		if( keyPressed==83 || keyPressed==115)
 		{
-			cout << "Saving image pairs..." << endl;
+			cout << "Saving uncalibrated image pairs..." << endl;
 
 			if(!outputFolder.empty()){
 				// Create the file names for saving the images
 				char fileName[256];
 				char fileName2[256];
-				sprintf(fileName, "%sCam0_%d.png", outputFolder.c_str(), frameId);
-				sprintf(fileName2, "%sCam1_%d.png", outputFolder.c_str(), frameId);
+				sprintf(fileName, "%sUncalibCam0_%d.png", outputFolder.c_str(), frameId);
+				sprintf(fileName2, "%sUncalibCam1_%d.png", outputFolder.c_str(), frameId);
 
 				// Write the images
 				try {
@@ -490,7 +628,7 @@ void StereoPair::saveCalibratedStereoImages(string outputFolder){
         {
             Point pt1(0, h);
             Point pt2(LR.cols, h);
-            line(LR, pt1, pt2, CV_RGB(255, 0, 0), 1);
+            line(LR, pt1, pt2, CV_RGB(255, 123, 47), 1);
         }
     	
         imshow("Calibrated stereo images", LR);
@@ -500,10 +638,11 @@ void StereoPair::saveCalibratedStereoImages(string outputFolder){
 		// Save the images if required
 		if( keyPressed== 83 || keyPressed==115)
 		{
+            cout << "Saving calibrated image pairs..." << endl;
 			char fileName[256];
 			char fileName2[256];
-			sprintf(fileName, "%sCam0_%d.png", outputFolder.c_str(), frameId);
-			sprintf(fileName2, "%sCam1_%d.png", outputFolder.c_str(), frameId);
+			sprintf(fileName, "%sCalibCam0_%d.png", outputFolder.c_str(), frameId);
+			sprintf(fileName2, "%sCalibCam1_%d.png", outputFolder.c_str(), frameId);
 
 			try {
 				imwrite(fileName, imgl);
@@ -536,19 +675,6 @@ void StereoPair::displayDisparityMap(bool showImages, string outputFolder, bool 
     if (showImages) {
         namedWindow("Left — Right", CV_WINDOW_NORMAL);
     }
-    /*
-     sgbm.SADWindowSize = 9;
-     sgbm.numberOfDisparities = 144;
-     sgbm.preFilterCap = 63;
-     sgbm.minDisparity = 0;
-     sgbm.uniquenessRatio = 10;
-     sgbm.speckleWindowSize = 100;
-     sgbm.speckleRange = 32;
-     sgbm.disp12MaxDiff = 1;
-     sgbm.fullDP = false;
-     sgbm.P1 = 216;
-     sgbm.P2 = 864;
-     */
     createTrackbar("SADWindowSize", "Controls", &sgbm.SADWindowSize, 50);
   //  createTrackbar("numberOfDisparities", "Controls", &sgbm.numberOfDisparities, 1000);
     createTrackbar("preFilterCap", "Controls", &sgbm.preFilterCap, 100);
@@ -560,27 +686,29 @@ void StereoPair::displayDisparityMap(bool showImages, string outputFolder, bool 
     createTrackbar("P1", "Controls", &sgbm.P1, 3000);
     createTrackbar("P2", "Controls", &sgbm.P2, 10000);
 
-	float scaleFactor = 0.6;
-	int whiteThreshold = 230;
+	float scaleFactor = 1.0;
+	int whiteThreshold = 255;
 	int frameID = 0;
+    
+    cout << "Press \n's' to save disparity map\n'd' to launch the 3D visualizer\n'x' to print corrent SGBM parameters" << endl;
+    
 	while(1){
-		if (useRectifiedImages) this->updateRectifiedPair();
-        else                    this->updateUnrectifiedPair();
-		this->updateDisparityImg(scaleFactor, useRectifiedImages);
+		this->updateRectifiedPair();
+		this->updateDisparityImg(scaleFactor);
 
 		if(showImages){
 			Mat d1 = glueTwoImagesHorizontal(imgl, imgr);
             imshow("Left — Right", d1);
 		}
 		Mat dispNorm = getDisparityImgNormalised();
-       /* for( int i = 0; i < dispNorm.rows; ++i){
+        for( int i = 0; i < dispNorm.rows; ++i){
             for( int j = 0; j < dispNorm.cols; ++j ){
             	Scalar intensity = dispNorm.at<uchar>(Point(j, i));
             	if(intensity.val[0] > whiteThreshold){
             		dispNorm.at<uchar>(Point(j, i)) = 0;
             	}
             }
-    	}*/
+    	}
 		//cvtColor(d2, d2, CV_GRAY2RGB );
 		//cvtColor(d2, d2, CV_BGR2HSV );
 
@@ -589,10 +717,28 @@ void StereoPair::displayDisparityMap(bool showImages, string outputFolder, bool 
 
 		// Wait for key press
 		int keyPressed = waitKey(20);
-
+        
+        // Save the images if required (press 's' or 'S')
+        if(keyPressed== 68 || keyPressed==100) {
+            updateImg3D(USE_CUSTOM_REPROJECTION_METHOD);
+            run3DVisualizer();
+        }
+        
+        else if(keyPressed==120 || keyPressed==88){
+            cout << "sgbm.SADWindowSize = " << sgbm.SADWindowSize << ";" << endl;
+            cout << "sgbm.numberOfDisparities = " << sgbm.numberOfDisparities << ";" << endl;
+            cout << "sgbm.preFilterCap = " << sgbm.preFilterCap << ";" << endl;
+            cout << "sgbm.minDisparity = " << sgbm.minDisparity << ";" << endl;
+            cout << "sgbm.uniquenessRatio = " << sgbm.uniquenessRatio << ";" << endl;
+            cout << "sgbm.speckleWindowSize = " << sgbm.speckleWindowSize << ";" << endl;
+            cout << "sgbm.speckleRange = " << sgbm.speckleRange << ";" << endl;
+            cout << "sgbm.disp12MaxDiff = " << sgbm.disp12MaxDiff << ";" << endl;
+            cout << "sgbm.fullDP = " << (sgbm.fullDP==0?"false":"true") << ";" << endl;
+            cout << "sgbm.P1 = " << sgbm.P1 << ";" << endl;
+            cout << "sgbm.P2 = " << sgbm.P2 << ";" << endl;
+        }
 		// Save the images if required (press 's' or 'S')
-		if( (keyPressed== 83 || keyPressed==115) && !outputFolder.empty())
-		{
+		else if( (keyPressed== 83 || keyPressed==115) && !outputFolder.empty()) {
 			char fileName[256];
 			sprintf(fileName, "%sdepthMap_%d.png", outputFolder.c_str(), frameID);
 
@@ -619,9 +765,9 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
 
 	///////////INITIAL PARAMETERS//////////////
 	Size boardSize = Size(9, 6);	//Inner board corners
-	float squareSize = 1.f;			//The actual square size, in any unit
-	int nimages = 16;				//Number of images to take for calibration
-    const int maxScale = 2;
+	float squareSize = 0.022;       //The actual square size, in any unit (meters prefered)
+	int nimages = 9;				//Number of images to take for calibration
+    int maxScale = 2;
 
     vector<vector<Point2f> > imagePoints[2];
     vector<vector<Point3f> > objectPoints;
@@ -631,12 +777,13 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
     imagePoints[1].resize(nimages);
     objectPoints.resize(nimages);
     vector<Mat> goodImages;			//Vector to store image pairs with calibration pattern correctly detected
+    
+    int itersSinceLastPattern = 1;
 
 	// Create visualization windows
-    Mat frameLR;
-    Mat cornerLR;
+    float windowResize = 0.8;
+    Mat calibDisplay;
 	namedWindow("Live calibration view", CV_WINDOW_NORMAL);
-	Size WindowResize;
 
 	int i, j, k, frameID = 0;
 	/*
@@ -647,50 +794,102 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
 
     for( i = j = 0; j < nimages; i++ )
     {
-    	vector<Mat> newStereoFrame;
-    	Mat cimg1, cimg2;	//Corner images
-    	///////////LIVE CALIBRATION WINDOW//////////////
     	while(1){
-
             this->updateUnrectifiedPair();
-    		Mat niml, nimr;
-
-        	frameLR = glueTwoImagesHorizontal(imgl, imgr);
-        	float LiveViewScale = 0.7;
-        	WindowResize = Size(frameLR.cols*LiveViewScale, frameLR.rows*LiveViewScale);
-        	resize(frameLR, frameLR, WindowResize);
-    		// Show images
-        	imshow("Live calibration view", frameLR);
+    		Mat niml = imgl, nimr = imgr;
+            Mat cimg1, cimg2;	//Corner images
+            bool found = false;
+            if( imageSize == Size() ) imageSize = niml.size();
+            
+            //////////DETECT CHESSBOARD CORNERS AND DISPLAY THEM/////////////
+            for( k = 0; k < 2; k++ ) {
+                Mat img = k==0 ? niml : nimr;
+                if(img.empty()) break;
+                
+                vector<Point2f>& corners = imagePoints[k][j];
+                
+                for( int scale = 1; scale <= maxScale; scale++ ) {
+                    Mat timg;
+                    if( scale == 1 )
+                        timg = img;
+                    else
+                        resize(img, timg, Size(), scale, scale);
+                    
+                    found = findChessboardCorners(timg, boardSize, corners, CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_NORMALIZE_IMAGE);
+                    
+                    if(found) {
+                        if(scale > 1) {
+                            Mat cornersMat(corners);
+                            cornersMat *= 1./scale;
+                        }
+                        //////////////Update corner view images///////////////////////
+                        Mat cimg;
+                        cvtColor(img, cimg, COLOR_GRAY2BGR);
+                        drawChessboardCorners(cimg, boardSize, corners, found);
+                        double sf = 640./MAX(img.rows, img.cols);
+                        Mat cornerImg;
+                        resize(cimg, cornerImg, Size(), sf, sf);
+                        if(k==0)     cimg1 = cornerImg;
+                        else if(k==1)cimg2 = cornerImg;
+                        
+                        ///////////////IMPROVE CORNER ACCURACY////////////////
+                        cornerSubPix(img, corners, Size(11,11), Size(-1,-1), TermCriteria(CV_TERMCRIT_ITER+CV_TERMCRIT_EPS, 30, 0.01));
+                        break;
+                    }
+                }
+                
+                if(!found) {
+                    if (itersSinceLastPattern == 0) {
+                        cout << "*** Alert! Calibration pattern must be detected in both frames!" << endl;
+                    }
+                    itersSinceLastPattern++;
+                    break;
+                }
+            }
+            
+            if(k == 2 && found){
+                calibDisplay = glueTwoImagesHorizontal(cimg1, cimg2);   // Update corner images
+                resize(calibDisplay, calibDisplay, Size(), windowResize, windowResize);
+                if(itersSinceLastPattern > 0){
+                    cout << "*** Correctly detecting pattern!" << endl;
+                    itersSinceLastPattern = 0;
+                }
+            } else {
+                calibDisplay = glueTwoImagesHorizontal(imgl, imgr);
+                resize(calibDisplay, calibDisplay, Size(), windowResize, windowResize);
+            }
+            imshow("Live calibration view", calibDisplay);
+            
     		// Wait for key press
     		int keyPressed = waitKey(20);
 
     		// Take images if 'n' or 'N' keys have been pressed
     		if( keyPressed==78 || keyPressed==110)
             {
-                if (imgl.channels() > 1) cvtColor(imgl, imgl,CV_RGB2GRAY);
-                if (imgr.channels() > 1) cvtColor(imgr, imgr,CV_RGB2GRAY);
-
-                newStereoFrame.push_back(imgl);
-                newStereoFrame.push_back(imgr);
-                cout << "Took a new image pair, " << nimages-(i+1) << " to end calibration" << endl;
-                break;
+                if(k == 2){
+                    if (imgl.channels() > 1) cvtColor(imgl, imgl, CV_RGB2GRAY);
+                    if (imgr.channels() > 1) cvtColor(imgr, imgr, CV_RGB2GRAY);
+                    goodImages.push_back(imgl);
+                    goodImages.push_back(imgr);
+                    j++;
+                    cout << "Took a new image pair, remaining images: " << nimages - j << endl;
+                    break;
+                }
+                else cout << "Alert! Calibration pattern must be detected in both frames!" << endl;
     		}
-    		// Save the images if required
-    		if((keyPressed== 83 || keyPressed==115) && j>0)
+    		// Save the images if required (pressing 's' or 'S')
+    		if(keyPressed== 83 || keyPressed==115)
     		{
     			cout << "Saving image pairs..." << endl;
 
     			if(!outputFolder.empty()){
     				// Create the file names for saving the images
     				char fileName[256];
-    				char fileName2[256];
-    				sprintf(fileName, "%sCam0_%d.png", outputFolder.c_str(), frameID);
-    				sprintf(fileName2, "%sCam1_%d.png", outputFolder.c_str(), frameID);
+    				sprintf(fileName, "%sCalib_%d.png", outputFolder.c_str(), frameID);
 
     				// Write the images
     				try {
-    					imwrite(fileName, frameLR);
-    					imwrite(fileName2, cornerLR);
+    					imwrite(fileName, calibDisplay);
     				}
     				catch (runtime_error& ex) {
     					fprintf(stderr, "Exception converting image to PNG format: %s \n", ex.what());
@@ -700,81 +899,12 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
     		}
     		else if(keyPressed==27){
     			destroyWindow("Live calibration view");
-    			destroyWindow("Corners");
     			return;
     		}
     	}
-
-    	//////////DETECT CHESSBOARD CORNERS AND DISPLAY THEM/////////////
-        for( k = 0; k < 2; k++ )
-        {
-            //Mat img = (k==0?imgL.at(i):imgR.at(i));
-        	Mat img = newStereoFrame.at(k);
-
-            if(img.empty())
-                break;
-
-
-            if( imageSize == Size() )
-                imageSize = img.size();
-
-            bool found = false;
-            vector<Point2f>& corners = imagePoints[k][j];
-            for( int scale = 1; scale <= maxScale; scale++ )
-            {
-                Mat timg;
-                if( scale == 1 )
-                    timg = img;
-                else
-                    resize(img, timg, Size(), scale, scale);
-                found = findChessboardCorners(timg, boardSize, corners,
-                    CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_NORMALIZE_IMAGE);
-                if( found )
-                {
-                    if( scale > 1 )
-                    {
-                        Mat cornersMat(corners);
-                        cornersMat *= 1./scale;
-                    }
-                    break;
-                }
-                else{
-                	cout << "Calibration pattern must be inside the frame!" << endl;
-                	break;
-                }
-            }
-
-            //////////////Update corner view images///////////////////////
-            string imageSide = (k==0? " left" : " right");
-            cout << "Image: " << i << imageSide << endl;
-            Mat cimg;
-            cvtColor(img, cimg, COLOR_GRAY2BGR);
-            drawChessboardCorners(cimg, boardSize, corners, found);
-            double sf = 640./MAX(img.rows, img.cols);
-            Mat cornerImg;
-            resize(cimg, cornerImg, Size(), sf, sf);
-            if(k==0)     cimg1 = cornerImg;
-            else if(k==1)cimg2 = cornerImg;
-            //////////////////////////////////////////////////////
-
-            ///////////////IMPROVE CORNER ACCURACY////////////////
-            cornerSubPix(img, corners, Size(11,11), Size(-1,-1), TermCriteria(CV_TERMCRIT_ITER+CV_TERMCRIT_EPS, 30, 0.01));
-        }
-
-        /////////////Show corner images//////////////////
-        cornerLR = glueTwoImagesHorizontal(cimg1, cimg2);
-        resize(cornerLR, cornerLR, WindowResize);
-        imshow("Corners", cornerLR);
-        /////////////////////////////////////////////////
-
-        //////ADD STEREO PAIR TO "goodImages" IF THE CHESSBOARD CORNERS WHERE FOUND ON BOTH IMAGES//////
-        if( k == 2 )
-        {
-            goodImages.push_back(newStereoFrame.at(0));
-            goodImages.push_back(newStereoFrame.at(1));
-            j++;
-        }
     }
+    
+    destroyWindow("Live calibration view");
 
     ////////FILL "objectPoints" WITH THE COORDINATES OF THE BOARD CORNERS////////
     for( i = 0; i < nimages; i++ )
@@ -785,13 +915,14 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
     }
 
     /////////////RUN STEREO CALIBRATION//////////////
-    cout << "Running stereo calibration ...\n";
+    cout << "******************************" << endl;
+    cout << "Running stereo calibration ..." << endl;
 
     Mat cameraMatrix[2], distCoeffs[2];
     cameraMatrix[0] = Mat::eye(3, 3, CV_64F);
     cameraMatrix[1] = Mat::eye(3, 3, CV_64F);
     Mat R, T, E, F;
-
+    
     double rms = stereoCalibrate(objectPoints, imagePoints[0], imagePoints[1],
                     cameraMatrix[0], distCoeffs[0],
                     cameraMatrix[1], distCoeffs[1],
@@ -851,7 +982,7 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
     	cout << "Saving parameters" << endl;
     	fs << "Size" << imageSize << "K1" << cameraMatrix[0] << "distCoeffs1" << distCoeffs[0] <<
     			"K2" << cameraMatrix[1] << "distCoeffs2" << distCoeffs[1] <<
-    			"R" << R << "T" << T;
+    			"R" << R << "T" << T << "Q" << Q;
     	fs.release();
     	cout << "Parameters saved" << endl;
     }
@@ -860,46 +991,4 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
    //////////Once parameters are saved, reinitialize rectification from them////////////////
     this->setupRectification(outputFile);
     this->rectificationViewer();
-}
-
-Point3f StereoPair::getPixel3Dcoords(int pixX, int pixY, double disp){
-    /*//////////////3D points from stereo matches///////////////
-     Mat Q = camera->getDispToDepthMat();
-     float X = pixX * Q.at<double>(0, 0) + Q.at<double>(0, 3);
-     float Y = pixY * Q.at<double>(1, 1) + Q.at<double>(1, 3);
-     float Z = Q.at<double>(2, 3);
-     float W = disp * Q.at<double>(3, 2) + Q.at<double>(3, 3);
-     X /= W;
-     Y /= W;
-     Z /= W;
-     
-     Point3f pt3(X, Y, Z);
-     ///////////////////////////////////////////////////////////*/
-    
-    //Get the interesting parameters from Q
-    double Q03, Q13, Q23, Q32, Q33;
-    Q03 = Q.at<double>(0,3);
-    Q13 = Q.at<double>(1,3);
-    Q23 = Q.at<double>(2,3);
-    Q32 = Q.at<double>(3,2);
-    Q33 = Q.at<double>(3,3);
-    
-    //std::cout << "Q(0,3) = "<< Q03 <<"; Q(1,3) = "<< Q13 <<"; Q(2,3) = "<< Q23 <<"; Q(3,2) = "<< Q32 <<"; Q(3,3) = "<< Q33 <<";" << std::endl;
-
-    if ( disp == 0 ) return; //Discard bad pixels
-    double pw = -1.0 * static_cast<double>(disp) * Q32 + Q33;
-    float x = static_cast<double>(pixX) + Q03;
-    float y = static_cast<double>(pixY) + Q13;
-    float z = Q23;
-    
-    x = x/pw;
-    y = y/pw;
-    z = z/pw;
-    return Point3f(x, y, z);
-}
-
-Mat StereoPair::reprojectTo3D(Mat disp){
-    Mat image3D;
-    reprojectImageTo3D(disp, image3D, Q);
-    return image3D;
 }

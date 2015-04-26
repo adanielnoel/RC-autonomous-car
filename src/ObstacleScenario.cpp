@@ -9,7 +9,8 @@
 
 #include <stdio.h>
 #include "ObstacleScenario.h"
-#include "StereoPair.h"
+
+using namespace std;
 
 ObstacleScenario::ObstacleScenario(){
     
@@ -36,40 +37,32 @@ ObstacleScenario::ObstacleScenario(float _width, float _depth, float _squareSize
     cout << "Size: " << scenario.size() << "x" << scenario.at(1).size() << endl;
 }
 
-void ObstacleScenario::populateScenario(Mat dispImg){
-    bool useCustomReprojectionMethod = false;
+void ObstacleScenario::populateScenario(Mat &image3D, bool &obstaclesDetected) {
     this->clearScenario();
-    Mat image3D = stereoPair.reprojectTo3D(dispImg);
-    regionOfInterest = Rect(0, 0, 80, 80);
-    //imshow("im3d",image3D);
-    //waitKey();
-    for (int i = regionOfInterest.x; i < regionOfInterest.width-regionOfInterest.x; i++) {
+    
+    if (image3D.empty()){
+        return;
+    }
+
+    for (int i = regionOfInterest.x; i < regionOfInterest.width+regionOfInterest.x; i++) {
         float Z_average = 0;
         float X = 0;
-        for (int j = regionOfInterest.y; j < regionOfInterest.height-regionOfInterest.y; j++) {
-            
-            float x=0.0, y=0.0, z=0.0;
-            if (useCustomReprojectionMethod){
-                double disp = dispImg.at<double>(Point(i, j));
-                if (disp < 0.1) continue;
-                Point3f pt = stereoPair.getPixel3Dcoords(i, j, disp);
-            }
-            else {
-                Vec3f point = image3D.at<Vec3f>(Point(i, j));
-                x = point.val[0];
-                y = point.val[1];
-                z = point.val[2];
-            }
-                Z_average += z;
-                X = x;
-            //cout << "x = " << x << "     y = " << y << "     z = " << z << endl;
+        for (int j = regionOfInterest.y; j < regionOfInterest.height+regionOfInterest.y; j++) {
+            Point3f point3D;
+            point3D.x = image3D.at<Vec3f>(j, i).val[0];
+            point3D.y = image3D.at<Vec3f>(j, i).val[1];
+            point3D.z = image3D.at<Vec3f>(j, i).val[2];
+            Z_average += point3D.z;
+            X = point3D.x;
+            //cout << "point3D.x = " << point3D.x << "     y = " << y << "     z = " << z << endl;
         }
         Z_average = Z_average/regionOfInterest.height;
         if ( Z_average > 0) {
             int square_x = ceil(X/squareSize);
             int square_y = ceil(Z_average/squareSize);
-            if (square_x < scenario.size() && square_y < scenario.at(0).size()) {
+            if ((square_x >= 0 && square_x < scenario.size()) && (square_y >= 0 && square_y < scenario.at(0).size())) {
                 scenario.at(square_x).at(square_y) = 1;
+                obstaclesDetected = true;
                 cout << "Square: " << square_x << ", " << square_y << endl;
             }
         }

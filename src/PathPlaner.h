@@ -5,6 +5,9 @@
  *      Author: alejandro
  */
 
+#ifndef PATHPLANER_H_
+#define PATHPLANER_H_
+
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -12,13 +15,10 @@
 #include "opencv2/contrib/contrib.hpp"
 #include "opencv2/opencv.hpp"
 #include <stdio.h>
-#include <math.h>
+#include <cmath>
 //#include "cv.h"
 
 #include "ObstacleScenario.h"
-
-#ifndef PATHPLANER_H_
-#define PATHPLANER_H_
 
 using namespace std;
 using namespace cv;

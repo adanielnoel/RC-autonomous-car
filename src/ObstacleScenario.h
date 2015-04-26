@@ -13,13 +13,12 @@
 #include "opencv2/core/core.hpp"
 #include "opencv2/contrib/contrib.hpp"
 #include "opencv2/opencv.hpp"
-#include "StereoPair.h"
 
 using namespace cv;
+using namespace std;
 
 class ObstacleScenario {
 public:
-    StereoPair stereoPair;
     Rect regionOfInterest; //This contains the region of the disparyty image used to populate the 2D map.
 	float width;			//In meters
 	float depth;			//In meters
@@ -28,7 +27,7 @@ public:
     
     ObstacleScenario();
     ObstacleScenario(float _width, float _depth, float _squareSize);
-    void populateScenario(Mat dispImg);
+    void populateScenario(Mat &image3D, bool &obstaclesDetected);
     void clearScenario();
 };
 
