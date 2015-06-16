@@ -2,16 +2,14 @@
 The aim of this project is to develop an on-board computer vision system for an RC car to make it navigate autonomously in indoor and outdoor environments.
 - - -
 
-##Version 0.9
-**16 Jun 2015**
+##Version 0.9 (16 Jun 2015)
 - Part of the avoidance path planning algorithm has been rewritten. No known bugs so far.
 - Setting the DO_LOOP variable to true makes the stereoCam and the avoidance algorithms work together in real-time with a nice 2D visualisation using the Simulator.
 - 3D reprojection has been improved.
-- The global variables are now in a header file (‘Globals.h’).
+- The global variables are now in a header file (`Globals.h`).
 - Some improvements for populating obstacle scenarios from 3D maps.
 
-##Version 0.5
-**24 Apr 2015**
+##Version 0.5 (24 Apr 2015)
 - Added PCL library support for 3D point-cloud visualisation.
 - Added a class for communicating with Arduino.
 - Streamlined calibration procedure for real-time calibration pattern detection.
