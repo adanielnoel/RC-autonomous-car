@@ -31,72 +31,52 @@ const int Simulator::TYPE_AVOIDANCE = 0;
 const int Simulator::TYPE_NAVIGATION = 1;
 const int Simulator::TYPE_NONE = 2;
 
-/*******************************************************************************************\
+/*=========================================================================================*\
 |   Initialization                                                                          |
-\*******************************************************************************************/
+\*=========================================================================================*/
 
 Simulator::Simulator(){
     squarePixelSize = 30;
     simulatorType = TYPE_NONE;
 }
 
-Simulator::Simulator(float data1, float data2, int type, float squareSize, Size _windowSize) {
-    windowSize = _windowSize;
-    simulatorType = type;
+Simulator::Simulator(float width, float height, float squareSize, int type, int windowWidth) {
+    XSquares = ceil(width/squareSize);
+    YSquares = ceil(height/squareSize);
     squareRealSize = squareSize;
-    if (type == TYPE_AVOIDANCE) {       //Avoidance simulator
-        //Calculate scenario dimensions
-        depth = data1;
-        fov = data2;
-        float alpha = ((180-fov)/2)*M_PI / 180;
-        XSquares = (2*(depth * cos(alpha)))/squareSize; //Calculate the scenario width
-        YSquares = depth/squareSize;
-        if (XSquares%2 != 0) {          //Make XSquares an even number
-            XSquares++;
-        }
+    simulatorType = type;
+
+    //Make XSquares an even number so the car appears centered.
+    if (XSquares % 2 != 0){
+        XSquares += 1;
+        width += squareSize;
     }
-    
-    else if (type == TYPE_NAVIGATION){  //Navigation simulator
-        XSquares = data1/squareSize;
-        YSquares = data2/squareSize;
-    }
-    
+
     // Initialise an empty scenario
-    scenario = initEmptyScen(XSquares, YSquares);
+    scenario = ObstacleScenario(width, height, squareSize);
     
     //Create window content
     ///Grid dimensions
 
-    squarePixelSize = ceil(windowSize.width/XSquares);
+    squarePixelSize = ceil(windowWidth/XSquares);
     
-    int windowWidth = squarePixelSize*XSquares;
-    int windowHeight = squarePixelSize*YSquares;
-    display = Mat(windowHeight, windowWidth, CV_8UC3, COLOR_EMPTY);
+    windowSize = Size(squarePixelSize*XSquares, squarePixelSize*YSquares);
+    display = Mat(windowSize, CV_8UC3, COLOR_EMPTY);
     drawGrid();
 }
 
-vector<vector<int> > Simulator::initEmptyScen(int XSquares, int YSquares){
-    vector<vector<int> > scenario;
-    for(int x=0; x<XSquares; x++){
-        vector<int> newRow;
-        for(int y=0; y<YSquares; y++){
-            newRow.push_back(0);        //Initialize square with value 0 (empty)
-        }
-        scenario.push_back(newRow);
-    }
-    return scenario;
-}
 
-/*******************************************************************************************\
+
+/*=========================================================================================*\
 |   Private utility methods                                                                 |
-\*******************************************************************************************/
+\*=========================================================================================*/
 
 void Simulator::markSquare(int markType, Point2i square, bool isShadow = false){
 	//Calculate square corners
 	Point rect0 = Point(square.x*squarePixelSize, square.y*squarePixelSize);
 	Point rect1 = Point(square.x*squarePixelSize + squarePixelSize-1, square.y*squarePixelSize + squarePixelSize-1);
     
-	scenario.at(square.x).at(square.y) = markType;
+	scenario.scenario.at(square.x).at(square.y) = markType;
 	
     switch(markType){
         case -1:
@@ -121,7 +101,7 @@ void Simulator::markSquare(int markType, Point2i square, bool isShadow = false){
 }
 
 void Simulator::clearColumn(int column){
-    for (unsigned int i = 0; i<scenario.at(i).size(); i++) {
+    for (unsigned int i = 0; i<scenario.scenario.at(i).size(); i++) {
         markSquare(0, Point2i(column, i));
     }
 }
@@ -129,7 +109,7 @@ void Simulator::clearColumn(int column){
 void Simulator::drawShadow(Point2i square){
     bool drawSadow = true;
     for (int j = 0; j<square.y; j++) {
-        if (scenario.at(square.x).at(j) == 0) {
+        if (scenario.scenario.at(square.x).at(j) == 0) {
             markSquare(0, Point2i(square.x, j), drawSadow);
         }
     }
@@ -157,7 +137,7 @@ void Simulator::drawGrid(){
         line(display, Point(halfDisplay, display.rows), Point(display.cols, display.rows-h), COLOR_SEPARATOR_LINE, 1.5);
         
         ////////Draw a car////////////
-        Mat carImg = imread("/Users/alejandrodanielnoel/Documents/XCode projects/Autonomous_Car/src/car_top.png");
+        Mat carImg = imread("/Users/alejandrodanielnoel1/Documents/XCode projects/Autonomous_Car/src/car_top.png");
         resize(carImg, carImg, Size(60, 120));
         Rect roi(0, 0, carImg.cols,carImg.rows/2-5);
         Mat image_roi = carImg(roi);
@@ -168,21 +148,21 @@ void Simulator::drawGrid(){
     }
 }
 
-/*******************************************************************************************\
+/*=========================================================================================*\
 |   Avoidance simulator                                                                     |
-\*******************************************************************************************/
+\*=========================================================================================*/
 
 void Simulator::avoidanceSimulator(bool autoEraseColumns = false){
     /////////Create a window object and set up mouse events/////////////
-    namedWindow("My Window", 1);
+    namedWindow("Avoidance simulator", 1);
     MouseData mouse;
-    setMouseCallback("My Window", CallBackFunc, &mouse);
+    setMouseCallback("Avoidance simulator", CallBackFunc, &mouse);
     ////////////////////////////////////////////////////////////////////
     
     printf("Press 'a' and move cursor to occupy squares.\nPress 's' and move cursor to empty occupied squares.\n");
     printf("Press ENTER to generate a path.\n");
     //Show simulator display
-    imshow("My Window", display);
+    imshow("Avoidance simulator", display);
     
     while(1){
         //Get current key pressed, if
@@ -202,7 +182,7 @@ void Simulator::avoidanceSimulator(bool autoEraseColumns = false){
             if(autoEraseColumns) clearColumn(currentSquare.x);
             drawGrid();
             //Update the simulator display
-            imshow("My Window", display);
+            imshow("Avoidance simulator", display);
         }
         else if(keyPressed == 97){	//ASCII 97 = 'a'
             //Mark square as occupied
@@ -211,20 +191,19 @@ void Simulator::avoidanceSimulator(bool autoEraseColumns = false){
             drawShadow(currentSquare);
             drawGrid();
             //Update the simulator display
-            imshow("My Window", display);
+            imshow("Avoidance simulator", display);
         }
         
         if( keyPressed == 27)	break;          //If keypressed is ESC exit simulation
 
         else if(keyPressed == 13){              //If keypressed is ENTER send scenario to path planner
-            ObstacleScenario obstacleScenario;
-            obstacleScenario.scenario = scenario;
+            ObstacleScenario obstacleScenario = scenario;
             obstacleScenario.squareSize = squareRealSize;
             PathPlaner planer;
             float pathRadius;
             pathRadius = planer.findAvoidancePath(obstacleScenario, 10000, display, squarePixelSize);
             ////////Draw a car////////////
-            Mat carImg = imread("/Users/alejandrodanielnoel/Documents/XCode projects/Autonomous_Car/src/car_top.png");
+            Mat carImg = imread("/Users/alejandrodanielnoel1/Documents/XCode projects/Autonomous_Car/src/car_top.png");
             resize(carImg, carImg, Size(60, 120));
             Rect roi(0, 0, carImg.cols,carImg.rows/2-5);
             Mat image_roi = carImg(roi);
@@ -232,10 +211,10 @@ void Simulator::avoidanceSimulator(bool autoEraseColumns = false){
             Mat displayROI(display, Rect(display.cols/2-carImg.cols/2, display.rows-carImg.rows, carImg.cols, carImg.rows));
             carImg.copyTo(displayROI);
             //////////////////////////////
-            imshow("My Window", display);
+            imshow("Avoidance simulator", display);
             int key = waitKey(0);
             if (key == 114) {
-                scenario = initEmptyScen(XSquares, YSquares);
+                scenario.clearScenario();
                 display = Mat(display.rows, display.cols, CV_8UC3, COLOR_EMPTY);
                 drawGrid();
                 avoidanceSimulator();
@@ -250,9 +229,9 @@ void Simulator::avoidanceSimulator(bool autoEraseColumns = false){
     }
 }
 
-/*******************************************************************************************\
+/*=========================================================================================*\
 |   Navigation simulator                                                                    |
-\*******************************************************************************************/
+\*=========================================================================================*/
 
 void Simulator::navigationSimulator(){
     Point2i initialLocation = Point2i(-1, -1);  //Negative values indicate that this has not been set up
@@ -289,7 +268,7 @@ void Simulator::navigationSimulator(){
                 //Update the simulator display
                 imshow("My Window", display);
              }
-             else if((targetLocation.x < 0 || targetLocation.y < 0) && (scenario.at(sqX).at(sqY) != 2)){
+             else if((targetLocation.x < 0 || targetLocation.y < 0) && (scenario.scenario.at(sqX).at(sqY) != 2)){
                  targetLocation = currentSquare;
                  markSquare(3, currentSquare);
                  drawGrid();
@@ -317,8 +296,7 @@ void Simulator::navigationSimulator(){
         if( keyPressed == 27)	break;          //If keypressed is ESC exit simulation
         
         else if(keyPressed == 13){              //If keypressed is ENTER send scenario to path planner
-            ObstacleScenario obstacleScenario;
-            obstacleScenario.scenario = scenario;
+            ObstacleScenario obstacleScenario = scenario;
             PathPlaner planer;
             bool success;
             success = planer.findNavigationPath(obstacleScenario, initialLocation, targetLocation);
@@ -328,9 +306,9 @@ void Simulator::navigationSimulator(){
     }
 }
 
-/*******************************************************************************************\
+/*=========================================================================================*\
 |   Simulator auto-choose                                                                   |
-\*******************************************************************************************/
+\*=========================================================================================*/
 void Simulator::runSimulation(){
     if (simulatorType == TYPE_AVOIDANCE)
         avoidanceSimulator();
@@ -338,22 +316,16 @@ void Simulator::runSimulation(){
         navigationSimulator();
 }
 
-Mat Simulator::drawScenario(ObstacleScenario &obstacleScen){
+Mat Simulator::drawScenario(){
     // bool obstaclesPresent = false;
-    simulatorType = TYPE_AVOIDANCE;
-    fov = 90;
-    namedWindow("Simulator", 1);
-    this->scenario = obstacleScen.scenario;
-    XSquares = scenario.size();
-    YSquares = scenario.at(1).size();
-    int windowWidth = squarePixelSize*XSquares;
-    int windowHeight = squarePixelSize*YSquares;
-    display = Mat(windowHeight, windowWidth, CV_8UC3, COLOR_EMPTY);
-    initEmptyScen(XSquares, YSquares);
+    //namedWindow("Simulator", 1);
+    XSquares = scenario.scenario.size();
+    YSquares = scenario.scenario.at(0).size();
+    display = Mat(windowSize, CV_8UC3, COLOR_EMPTY);
     
     for (int i = 0; i<XSquares; i++) {
         for (int j = 0; j < YSquares; j++) {
-            if (scenario.at(i).at(j) == 1) {
+            if (scenario.scenario.at(i).at(j) == 1) {
                 markSquare(1, Point2i(i, j));
             }
         }

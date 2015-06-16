@@ -27,6 +27,7 @@ public:
     
     ObstacleScenario();
     ObstacleScenario(float _width, float _depth, float _squareSize);
+    ObstacleScenario(int _XSquares, int _YSquares);
     void populateScenario(Mat &image3D, bool &obstaclesDetected);
     void clearScenario();
 };

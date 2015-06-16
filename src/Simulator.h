@@ -42,7 +42,6 @@ class Simulator {
     void clearColumn(int column);
     void drawShadow(Point2i square);
     void drawGrid();
-    vector<vector<int> > initEmptyScen(int XSquares, int YSquares);
 
 public:
     static const int TYPE_AVOIDANCE;
@@ -52,17 +51,17 @@ public:
     int simulatorType;
     float fov;  //Used only for avoidance simulator
     float depth;//Used only for avoidance simulator
-    vector< vector<int> > scenario;
+    ObstacleScenario scenario;
     float squareRealSize;
     int squarePixelSize;
     Mat display;
     
     Simulator();
-	Simulator(float data1, float data2, int type, float squareSize, Size _windowSize);	//Use real world measures
+	Simulator(float width, float height, float squareSize, int type, int windowWidth);	//Use real world measures
 	void runSimulation();
     void avoidanceSimulator(bool autoEraseColumns);
     void navigationSimulator();
-    Mat drawScenario(ObstacleScenario &obstacleScen);
+    Mat drawScenario();
 	virtual ~Simulator();
 };
 

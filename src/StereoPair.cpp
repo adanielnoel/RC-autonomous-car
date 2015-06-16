@@ -35,7 +35,9 @@ float constrain(float val, float min, float max){
 }
 
 
-const bool StereoPair::USE_CUSTOM_REPROJECTION_METHOD = true;
+
+const bool StereoPair::USE_OPENCV_REPROJECTION_METHOD = 0;
+const bool StereoPair::USE_CUSTOM_REPROJECTION_METHOD = 1;
 
 StereoPair::StereoPair() {
 	// TODO Auto-generated constructor stub
@@ -46,6 +48,7 @@ StereoPair::StereoPair(int lCamId, int rCamId, int _width, int _height, int camF
     width = _width;
     height = _height;
     fps = camFPS;
+    cameraIsUpsideDown = false;
     if (lCamId != rCamId) {
         defaultCamera = true;
         //Open and configure cameras
@@ -82,7 +85,7 @@ StereoPair::StereoPair(int lCamId, int rCamId, int _width, int _height, int camF
         cvNamedWindow("Right");
         
         // Set exposure and LED brightness
-        SetExposure(4);
+        SetExposure(9);
         SetLed(0);
     }
     
@@ -327,6 +330,13 @@ bool StereoPair::updateUnrectifiedPair(){
         newFrameR = right;
     }
     
+    if (cameraIsUpsideDown) {
+        flip(newFrameL, newFrameL, 0);  // Flip vertically
+        flip(newFrameR, newFrameR, 0);  // Flip vertically
+        flip(newFrameL, newFrameL, 1);  // Flip horizontally
+        flip(newFrameR, newFrameR, 1);  // Flip horizontally
+    }
+    
     // For some reason, DUO3D left frame is right and vice-versa!!!
     imgr = newFrameL;
     imgl = newFrameR;
@@ -395,8 +405,8 @@ void StereoPair::updateDisparityImg(float scaleFactor){
      */
 	resize(imgl, rimgl, Size(), scaleFactor, scaleFactor, INTER_AREA);
 	resize(imgr, rimgr, Size(), scaleFactor, scaleFactor, INTER_AREA);
-	
     sgbm(rimgl, rimgr, dsp);
+    resize(dsp, dsp, Size(), 1/scaleFactor, 1/scaleFactor, INTER_AREA);
 }
 
 
@@ -421,6 +431,7 @@ void StereoPair::run3DVisualizer(){
             //cout << "X: " << point.x << "   Y: " << point.y << "   Z: " << point.z << endl;
         }
     }
+    cout << "minZ: " << minZ << "     maxZ: " << maxZ << endl;
     for(unsigned int i = 0; i < point_cloud_ptr->size(); i++){
         float pz = point_cloud_ptr->at(i).z;
         uint8_t r(255 - constrain(mapValue(pz, minZ, maxZ, 0, 255), 0, 255));
@@ -461,14 +472,14 @@ void StereoPair::updateImg3D(bool useCustomMethod){
     if (useCustomMethod) {
         //Get the interesting parameters from Q
         double Q03, Q13, Q23, Q32, Q33;
-        Q03 = Q.at<double>(0,3);
-        Q13 = Q.at<double>(1,3);
-        Q23 = Q.at<double>(2,3);
-        Q32 = Q.at<double>(3,2);
+        Q03 = Q.at<double>(0,3);    //cx
+        Q13 = Q.at<double>(1,3);    //cy
+        Q23 = Q.at<double>(2,3);    //f 
+        Q32 = Q.at<double>(3,2);    //
         Q33 = Q.at<double>(3,3);
         
         double px, py, pz;
-        Mat dspn = this->getDisparityImgNormalised();
+        Mat dspn = this->getDisparityImg();
         double minX = 10000000, maxX = 0;
         double minY = 10000000, maxY = 0;
         double minZ = 10000000, maxZ = 0;
@@ -504,11 +515,16 @@ void StereoPair::updateImg3D(bool useCustomMethod){
                 img3D.at<Vec3f>(i, j).val[2] = pz;
             }
         }
-        cout << "minX: " << minX << "   maxX: " << maxX << endl;
-        cout << "minY: " << minY << "   maxY: " << maxY << endl;
-        cout << "minZ: " << minZ << "   maxZ: " << maxZ << endl;
+        //cout << "minX: " << minX << "   maxX: " << maxX << endl;
+        //cout << "minY: " << minY << "   maxY: " << maxY << endl;
+        //cout << "minZ: " << minZ << "   maxZ: " << maxZ << endl;
     }
-    else reprojectImageTo3D(dsp, img3D, Q);//, true, CV_32FC3);
+    else {
+        Mat depthImage = Mat(dsp.rows, dsp.cols, dsp.type());
+        flip(dsp, depthImage, 1);  // reprojectImageTo3D() rotates the image, so we prevent this before
+        flip(depthImage, depthImage, 0);
+        reprojectImageTo3D(depthImage, img3D, Q);//, true, CV_32FC3);
+    }
 }
 
 // ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -686,7 +702,7 @@ void StereoPair::displayDisparityMap(bool showImages, string outputFolder, bool 
     createTrackbar("P1", "Controls", &sgbm.P1, 3000);
     createTrackbar("P2", "Controls", &sgbm.P2, 10000);
 
-	float scaleFactor = 1.0;
+	float scaleFactor = 0.50;
 	int whiteThreshold = 255;
 	int frameID = 0;
     
@@ -709,8 +725,6 @@ void StereoPair::displayDisparityMap(bool showImages, string outputFolder, bool 
             	}
             }
     	}
-		//cvtColor(d2, d2, CV_GRAY2RGB );
-		//cvtColor(d2, d2, CV_BGR2HSV );
 
         //resize(dispNorm, dispNorm, Size(), 1/scaleFactor, 1/scaleFactor, INTER_CUBIC);
 		imshow("Disparity", dispNorm);
@@ -718,9 +732,9 @@ void StereoPair::displayDisparityMap(bool showImages, string outputFolder, bool 
 		// Wait for key press
 		int keyPressed = waitKey(20);
         
-        // Save the images if required (press 's' or 'S')
+        // Run point cloud visualizer y 'd' or 'D' keys are pressed
         if(keyPressed== 68 || keyPressed==100) {
-            updateImg3D(USE_CUSTOM_REPROJECTION_METHOD);
+            updateImg3D(USE_OPENCV_REPROJECTION_METHOD);
             run3DVisualizer();
         }
         

@@ -11,11 +11,17 @@
 
 const float PathPlaner::WAYPOINT_DIST = 0.3;
 const float PathPlaner::MINIMUM_RADIUS = 0.1;
-const float PathPlaner::HALF_VEHICLE_WIDTH = 0.38   ;
+const float PathPlaner::HALF_VEHICLE_WIDTH = 0.28   ;
 const Scalar PathPlaner::COLOR_PATH = Scalar(30, 150, 30);
 const Scalar PathPlaner::COLOR_PATH_LIMITS = Scalar(0, 150, 33);
 const Scalar PathPlaner::COLOR_CORNERS = Scalar(30, 30, 150);
 
+/*************************************************************
+ * Handy method for comparing the sign of two float values.  *
+ *************************************************************/
+bool areDifferentSign(float val1, float val2){
+    return val1*val2<0?true:false;
+}
 
 PathPlaner::PathPlaner() {
 	// TODO Auto-generated constructor stub
@@ -40,12 +46,13 @@ void PathPlaner::drawAvoidancePaths(cv::Mat &display, vector<RadiusPair> radiusR
     for (unsigned int i = 0; i < radiusRanges.size(); i++) {
         float minRad = radiusRanges.at(i).radius1;
         float maxRad = radiusRanges.at(i).radius2;
+        //cout << "Min rad " << i << ": " << minRad << endl;
+        //cout << "Max rad " << i << ": " << maxRad << endl;
         Point curveCenter;
         //Scalar curveColor = Scalar((i%2)*200,((i*2 % 3)*100)%255,(100+30*i)%255);
         Scalar curveColor = COLOR_PATH_LIMITS;
         
         //Draw the minimum radius
-        cout << "Min rad " << i << ": " << minRad << endl;
         if (minRad == 0) continue;
         curveCenter = Point((viewerLoc.x+minRad)*pixelsPerMeter, display.rows);
         minRad = abs(minRad);
@@ -53,11 +60,9 @@ void PathPlaner::drawAvoidancePaths(cv::Mat &display, vector<RadiusPair> radiusR
         
         //Draw the maximum radius
         if (maxRad == 0) continue;
-        cout << "Max rad " << i << ": " << maxRad << endl;
         curveCenter = Point((viewerLoc.x+maxRad)*pixelsPerMeter, display.rows);
         maxRad = abs(maxRad);
         circle(display, curveCenter, maxRad*pixelsPerMeter, curveColor, 2);
-        cout << "Max rad " << i << ": " << maxRad << endl;
     }
 }
 
@@ -76,7 +81,7 @@ float radiusForTangency(Point2f tangentPoint){
     float alpha = atan(relY / abs(relX));
     float beta = M_PI/2-alpha;
     float cathetus = sqrt((relX*relX) + (relY*relY));
-    return ((cathetus/abs(sin(beta)))/2)*radiusSign; //Negative because it is at the left side of the
+    return ((cathetus/abs(sin(beta)))/2)*radiusSign;
 }
 
 /*******************************************************************
@@ -93,9 +98,9 @@ void PathPlaner::neighborExpand(Point currentSquare, Point viewerLoc, vector<Cor
     //Mark the current square as already visited
     scen.at(x).at(y) = -1;
     
-    //Define an array to store the neighbor types and variable to store neighbor location
+    //Define an array to store the neighbor types and variables to store neighbor location
     int neighborType[8];
-    int nX = x, nY = y-1;
+    int nX, nY;
     
     //Top neighbor
     nX = x; nY = y-1;
@@ -181,7 +186,7 @@ RadiusPair findMinMaxRadius(vector<Corner> corners, Point2f initLoc){
     /////////////////////STEP 1: Find out if a path above the block is possible. /////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////////////
     for (unsigned int i = 0; i < corners.size(); i++) {
-        if (lastCornerX*corners.at(i).cornerLoc.x < 0) {
+        if (areDifferentSign(lastCornerX, corners.at(i).cornerLoc.x)) {
             //If the block crosses in front of the vehicle, its relative x positions change their sign
             noCurveAboveBlock = true;
             break;
@@ -197,7 +202,7 @@ RadiusPair findMinMaxRadius(vector<Corner> corners, Point2f initLoc){
     ///////////////////STEP 2: Assign initial values to the two tangent radiuses.        /////////////////
     ///////////////////        rad2 is always bottom and rad1 can be both top or bottom. /////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////////////
-    float rad1 = noCurveAboveBlock == true ? 1000 : 0; //This is radius on top of the block if possible, otherwise it is the one at the right of the block below it
+    float rad1 = noCurveAboveBlock == true ? 10000 : 0; //This is radius on top of the block if possible, otherwise it is the one at the right of the block below it
     float rad2 = 10000;  //Set it to a big number because we are taking the smallest one and we compare new radiuses with this value
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -251,7 +256,7 @@ RadiusPair findMinMaxRadius(vector<Corner> corners, Point2f initLoc){
             else if (currentCorner.cornerLoc.x >= -PathPlaner::HALF_VEHICLE_WIDTH && currentCorner.cornerLoc.x <= PathPlaner::HALF_VEHICLE_WIDTH){
                 if (currentCorner.isLeft) {
                     newRadius = radiusForTangency(Point2f(currentCorner.cornerLoc.x - PathPlaner::HALF_VEHICLE_WIDTH, currentCorner.cornerLoc.y));
-                    newRadius -= PathPlaner::HALF_VEHICLE_WIDTH;
+                    newRadius += PathPlaner::HALF_VEHICLE_WIDTH;
                     if (abs(newRadius) < abs(rad2))
                         rad2 = newRadius;
                 }
@@ -274,154 +279,93 @@ RadiusPair findMinMaxRadius(vector<Corner> corners, Point2f initLoc){
 }
 
 
-/*************************************************************
- * Handy method for comparing the sign of two float values.  *
- *************************************************************/
-bool areDifferentSign(float val1, float val2){
-    return val1*val2<0?true:false;
+bool radiusContainedInRange(float radius, RadiusPair range){
+    float minRad = abs(range.radius1) < abs(range.radius2) ? abs(range.radius1) : abs(range.radius2);
+    float maxRad = abs(range.radius1) < abs(range.radius2) ? abs(range.radius2) : abs(range.radius1);
+
+    if (areDifferentSign(range.radius1, range.radius2)) {
+        if (abs(radius) > minRad) return true;
+    }
+    else if (!areDifferentSign(radius, range.radius1) && (abs(radius) > minRad && abs(radius) < maxRad)) return true;
+    
+    return false;
 }
 
-/*********************************************************************************************
+/*====================================================================================*\
+|  Returns the left-most and right-most radiuses among a collection of radius pairs    |
+\*====================================================================================*/
+
+RadiusPair fusionRadiusRanges(vector<RadiusPair> radRanges) {
+    float leftRad =   0.00001;    // Initial value used for starting comparison
+    float rightRad = -0.00001;         // Initial value used for starting comparison
+    
+    for (int i = 0; i < radRanges.size(); i++) {
+        float r1 = radRanges.at(i).radius1;
+        float r2 = radRanges.at(i).radius2;
+        if      (leftRad > 0 && r1 < 0) leftRad = r1;
+        else if (leftRad > 0 && r2 < 0) leftRad = r2;
+        if      (rightRad < 0 && r1 > 0) rightRad = r1;
+        else if (rightRad < 0 && r2 > 0) rightRad = r2;
+        
+        if (areDifferentSign(leftRad, rightRad)) {
+            if (r1 < 0 && abs(r1) < abs(leftRad)) leftRad = r1;
+            if (r2 < 0 && abs(r2) < abs(leftRad)) leftRad = r2;
+            if (r1 > 0 && abs(r1) < abs(rightRad)) rightRad = r1;
+            if (r2 > 0 && abs(r2) < abs(rightRad)) rightRad = r2;
+        }
+        else if (leftRad < 0){  // rightRad will also be < 0
+            if (abs(r1) < abs(leftRad)) leftRad = r1;
+            if (abs(r2) < abs(leftRad)) leftRad = r2;
+            if (abs(r1) > abs(rightRad)) rightRad = r1;
+            if (abs(r2) > abs(rightRad)) rightRad = r2;
+        }
+        else if (leftRad > 0) {  // rightRad will also be > 0
+            if (abs(r1) > abs(leftRad)) leftRad = r1;
+            if (abs(r2) > abs(leftRad)) leftRad = r2;
+            if (abs(r1) < abs(rightRad)) rightRad = r1;
+            if (abs(r2) < abs(rightRad)) rightRad = r2;
+        }
+    }
+    RadiusPair returnPair;
+    returnPair.radius1 = leftRad; returnPair.radius2 = rightRad;
+    return returnPair;
+}
+
+/*===========================================================================================*
  * FUNCTION: findValidRadiusesRanges                                                         *
  * This function receives the radiuses to avoid each block and selects the ones that do not  *
  * intersect radiuses from other blocks. This means to ensure that the robot fits in a path. *
  * 25/11/2014: Debugged and working as expected.                                             *
- *********************************************************************************************/
+ *===========================================================================================*/
 
 vector<RadiusPair> findValidRadiusesRanges(vector<RadiusPair> &tangentRadiusesPairs){
     vector<RadiusPair> validRanges;
+    vector<RadiusPair> trp = tangentRadiusesPairs;
     
-    ///////////////////////////////////////////////////////////////////////////////////
-    //////////STEP 1: Find the left-most block.                          //////////////
-    ///////////////////////////////////////////////////////////////////////////////////
-    int firstBlockIndex = -1;
-    float firstRad = 10000.0;
-    for (unsigned int i = 0; i < tangentRadiusesPairs.size(); i++) {
-        if (tangentRadiusesPairs.at(i).radius2 < 0){
-            if (abs(tangentRadiusesPairs.at(i).radius2) < abs(firstRad)) {
-                firstRad = tangentRadiusesPairs.at(i).radius2;
-                firstBlockIndex = i;
+    for (int i = 0; i < trp.size(); i++) {
+        vector<RadiusPair> interceptedRanges;
+        vector<RadiusPair> temp_trp;
+        for (int j = 0; j < trp.size(); j++) {
+            if (j == i) continue;
+            
+            if (radiusContainedInRange(trp.at(i).radius1, trp.at(j))) {
+                interceptedRanges.push_back(trp.at(j));
             }
+            else if (radiusContainedInRange(trp.at(i).radius2, trp.at(j))) {
+                interceptedRanges.push_back(trp.at(j));
+            }
+            else temp_trp.push_back(trp.at(j));
+        }
+        
+        if (!interceptedRanges.empty()) {
+            interceptedRanges.push_back(trp.at(i));
+            vector<RadiusPair> new_trp;
+            new_trp.push_back(fusionRadiusRanges(interceptedRanges));
+            new_trp.insert(new_trp.end(), temp_trp.begin(), temp_trp.end());
+            trp = new_trp;
         }
     }
-    if (firstBlockIndex == -1) {
-        firstRad = 0;
-        for (int i = 0; i < tangentRadiusesPairs.size(); i++) {
-            if (tangentRadiusesPairs.at(i).radius1 > 0){
-                if (tangentRadiusesPairs.at(i).radius1 > firstRad) {
-                    firstRad = tangentRadiusesPairs.at(i).radius1;
-                    firstBlockIndex = i;
-                }
-            }
-        }
-    }
-    
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //////////STEP 2: Add the first radius range, from -PathPlaner::MINIMUM_RADIUS to the block. ////////////////
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    RadiusPair newValidRange;
-    newValidRange.radius1 = - PathPlaner::MINIMUM_RADIUS;
-    newValidRange.radius2 = firstRad;
-    validRanges.push_back(newValidRange);
-    if (tangentRadiusesPairs.size() == 1) {
-        if (firstRad < 0)
-            newValidRange.radius1 = tangentRadiusesPairs.at(firstBlockIndex).radius1;
-        else if(firstRad > 0)
-            newValidRange.radius1 = tangentRadiusesPairs.at(firstBlockIndex).radius2;
-        newValidRange.radius2 = PathPlaner::MINIMUM_RADIUS;
-        validRanges.push_back(newValidRange);
-        return validRanges;
-    }
-    
-    /////////////////////////////////////////////////////////////////////////////////////////
-    //////////STEP 3: Find the next block and check the validity of the radius //////////////
-    //////////        range in between.                                        //////////////
-    /////////////////////////////////////////////////////////////////////////////////////////
-
-    int currentIdx = firstBlockIndex;
-    int lastValidIdx = 0;
-    float smallestPositiveRad = 10000;
-    float biggestNegativeRad = 0;
-    while (true) {
-        if (currentIdx == tangentRadiusesPairs.size()-1)
-            break;
-        float r01 = tangentRadiusesPairs.at(currentIdx).radius1;
-        float r02 = tangentRadiusesPairs.at(currentIdx).radius2;
-        float r0 = r02 < 0? r01 : r02;  //r0 is the right-most radius of the current block
-        float smallestR1Diff = 100000;
-        int nextIdx = -1;
-        for (int i = currentIdx; i < tangentRadiusesPairs.size(); i++) {
-            if (i == currentIdx) continue;
-            float r1 = tangentRadiusesPairs.at(i).radius1;
-            float r2 = tangentRadiusesPairs.at(i).radius2;
-            if (r0 < 0) {
-                if (r1 > 0 && nextIdx > currentIdx) break;
-                if (abs(r1)-abs(r0) < smallestR1Diff) {
-                    smallestR1Diff = abs(r1)-abs(r0);
-                    nextIdx = i;
-                }
-                if (abs(r0) > abs(biggestNegativeRad)) {
-                    biggestNegativeRad = r0;
-                    lastValidIdx = r0;
-                }
-            }
-            else if (r0 > 0){
-                if (abs(r0) - abs(r2) < smallestR1Diff) {
-                    smallestR1Diff = r0 - r2;
-                    nextIdx = i;
-                }
-                if (r0 < smallestPositiveRad) {
-                    smallestPositiveRad = r0;
-                    lastValidIdx = i;
-                }
-            }
-        }
-        if (nextIdx == -1) {     //Only in the case that a range goes from negative to positive
-            smallestR1Diff = 10000;
-            for (int i = 0; i < tangentRadiusesPairs.size(); i++) {
-                if (i == currentIdx) continue;
-                float r2 = tangentRadiusesPairs.at(i).radius2;
-                if (r0 < 0) {
-                    if (r2 < smallestR1Diff) {
-                        smallestR1Diff = r2;
-                        nextIdx = i;
-                    }
-                }
-            }
-        }
-        if (nextIdx == -1) {
-            cout << "Something went wrong!!!" << endl;
-        }
-        float nr1 = tangentRadiusesPairs.at(nextIdx).radius1;
-        float nr2 = tangentRadiusesPairs.at(nextIdx).radius2;
-        RadiusPair nextRadRange;
-        nextRadRange.radius1 = r0;
-        if (nr2 < 0 && r0 < 0){
-            if (abs(nr2) > abs(r0)){
-                nextRadRange.radius2 = nr2;
-                validRanges.push_back(nextRadRange);
-            }
-        }
-        else if (nr2 > 0 && r0 > 0) {
-            if (r0 > nr1 && r0 > nr2){
-                nextRadRange.radius2 = nr1;
-                validRanges.push_back(nextRadRange);
-            }
-        }
-        else if (areDifferentSign(r0, nr1)){
-            nextRadRange.radius2 = nr1;
-            validRanges.push_back(nextRadRange);
-            lastValidIdx = nextIdx;
-        }
-        currentIdx = nextIdx;
-    }
-    RadiusPair lastRadRange;
-    float r01 = tangentRadiusesPairs.at(lastValidIdx).radius1;
-    float r02 = tangentRadiusesPairs.at(lastValidIdx).radius2;
-    lastRadRange.radius1 = r02 < 0 ? r01 : r02;
-    lastRadRange.radius2 = PathPlaner::MINIMUM_RADIUS;
-    validRanges.push_back(lastRadRange);
-    return validRanges;
+    return trp;
 }
 
 

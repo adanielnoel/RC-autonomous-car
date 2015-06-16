@@ -61,6 +61,8 @@ class StereoPair {
 public:
     ///////Public class constants/////////
     static const bool USE_CUSTOM_REPROJECTION_METHOD;
+    static const bool USE_OPENCV_REPROJECTION_METHOD;
+    bool              cameraIsUpsideDown;
     
     ////////Web-cam///////
     VideoCapture	camL;			// Left camera

@@ -34,8 +34,26 @@ ObstacleScenario::ObstacleScenario(float _width, float _depth, float _squareSize
     }
     
     scenario = newScen;
-    cout << "Size: " << scenario.size() << "x" << scenario.at(1).size() << endl;
 }
+
+ObstacleScenario::ObstacleScenario(int _XSquares, int _YSquares){
+    int XSquares = _XSquares;
+    int ZSquares = _YSquares;
+    
+    vector<vector<int> > newScen;
+    
+    for (int i = 0; i < XSquares; i++) {
+        vector<int> newCol;
+        for (int j = 0; j < ZSquares; j++) {
+            newCol.push_back(0);
+        }
+        newScen.push_back(newCol);
+    }
+    
+    scenario = newScen;
+}
+
+
 
 void ObstacleScenario::populateScenario(Mat &image3D, bool &obstaclesDetected) {
     this->clearScenario();
@@ -44,31 +62,32 @@ void ObstacleScenario::populateScenario(Mat &image3D, bool &obstaclesDetected) {
         return;
     }
 
-    for (int i = regionOfInterest.x; i < regionOfInterest.width+regionOfInterest.x; i++) {
+    float scaleFactor = 70.0;
+    
+    for (int x = regionOfInterest.x; x < regionOfInterest.width+regionOfInterest.x; x++) {
         float Z_average = 0;
         float X = 0;
-        for (int j = regionOfInterest.y; j < regionOfInterest.height+regionOfInterest.y; j++) {
+        for (int y = regionOfInterest.y; y < regionOfInterest.height+regionOfInterest.y; y++) {
             Point3f point3D;
-            point3D.x = image3D.at<Vec3f>(j, i).val[0];
-            point3D.y = image3D.at<Vec3f>(j, i).val[1];
-            point3D.z = image3D.at<Vec3f>(j, i).val[2];
+            point3D.x = float(image3D.at<Vec3f>(y, x).val[0]*scaleFactor);
+            point3D.y = float(image3D.at<Vec3f>(y, x).val[1]*scaleFactor);
+            point3D.z = float(image3D.at<Vec3f>(y, x).val[2]*scaleFactor);
+            
             Z_average += point3D.z;
             X = point3D.x;
-            //cout << "point3D.x = " << point3D.x << "     y = " << y << "     z = " << z << endl;
+            //cout << "x = " << point3D.x << "     y = " << point3D.y << "     z = " << point3D.z << endl;
         }
         Z_average = Z_average/regionOfInterest.height;
         if ( Z_average > 0) {
-            int square_x = ceil(X/squareSize);
-            int square_y = ceil(Z_average/squareSize);
+            int square_x = scenario.at(0).size()-ceil(X/squareSize + scenario.size()/3);
+            int square_y = scenario.at(0).size()-(ceil(Z_average/squareSize));
             if ((square_x >= 0 && square_x < scenario.size()) && (square_y >= 0 && square_y < scenario.at(0).size())) {
                 scenario.at(square_x).at(square_y) = 1;
                 obstaclesDetected = true;
-                cout << "Square: " << square_x << ", " << square_y << endl;
             }
         }
         
     }
-    cout << "***************************************************************" << endl;
 }
 
 void ObstacleScenario::clearScenario(){
