@@ -15,8 +15,8 @@ const string CALIBRATION_FILE = "/Users/alejandrodanielnoel1/Documents/XCode pro
 const string ARDUINO_SERIAL_PORT = "/dev/tty.usbmodem411";
 const int ARDUINO_BAUDRATE = 9600;
 
-//Main options
-const bool DO_LOOP = false; //This enables/disables the main loop
+//Main loop
+const bool DO_MAIN_LOOP = false; //This enables/disables the main loop
 
 //Stereo camera parameters
 const int STEREOCAM_LEFT_ID = 2;
@@ -24,22 +24,22 @@ const int STEREOCAM_RIGHT_ID = 1;
 const int STEREOCAM_FRAME_RATE = 10;
 
 //Stereo camera options
-const bool STEREOCAM_INIT = true;
+const bool STEREOCAM_INIT = false;
 const bool STEREOCAM_CAMERA_IS_INVERTED = true;
 const bool STEREOCAM_DUO3D = true;
 const bool STEREOCAM_RECTIFY_IMAGES = true;
 const bool STEREOCAM_CALIBRATE = false;
-const bool STEREOCAM_SHOW_RECTIFICATION = true;
+const bool STEREOCAM_SHOW_RECTIFICATION = false;
 const bool STEREOCAM_SAVE_UNCALIBRATED_PAIRS = false;
 const bool STEREOCAM_SAVE_CALIBRATED_PAIRS = false;
-const bool STEREOCAM_SHOW_DISPARITY_MAP = true;
+const bool STEREOCAM_SHOW_DISPARITY_MAP = false;
 
 //Odometry options
 const bool ODOMETRY_INIT = false;
 const bool ODOMETRY_SHOW_MATCHES = true;
 
 //Path planning simulator options
-const bool PATHSIM_INIT = false;
+const bool PATHSIM_INIT = true;
 const bool PATHSIM_RUN_AVOIDANCE = true;
 const bool PATHSIM_RUN_NAVIGATION = false;
 

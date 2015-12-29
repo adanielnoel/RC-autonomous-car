@@ -106,7 +106,8 @@ bool Odometry::updateOdometry(){
 }
 
 vector<Point3f> Odometry::localToGlobalCoords(vector<Point3f> localCoordPoints, Mat T, Mat R){
-	return localCoordPoints;
+	// TODO: This function does nothing!
+    return localCoordPoints;
 }
 
 void Odometry::computeFeatures(Mat& img, vector<KeyPoint> & kp, Mat & descriptors){
@@ -177,7 +178,7 @@ vector<DMatch> Odometry::filteredMatch(vector<KeyPoint> kp1, vector<KeyPoint> kp
 	    matcher->knnMatch( desc2, desc1, matches21, knn );
 	    for( size_t m = 0; m < matches12.size(); m++ )
 	    {
-	        bool findCrossCheck = false;
+	        bool foundCrossCheck = false;
 	        for( size_t fk = 0; fk < matches12[m].size(); fk++ )
 	        {
 	            DMatch forward = matches12[m][fk];
@@ -188,11 +189,11 @@ vector<DMatch> Odometry::filteredMatch(vector<KeyPoint> kp1, vector<KeyPoint> kp
 	                if( backward.trainIdx == forward.queryIdx )
 	                {
 	                	FMatches.push_back(forward);
-	                    findCrossCheck = true;
+	                    foundCrossCheck = true;
 	                    break;
 	                }
 	            }
-	            if( findCrossCheck ) break;
+	            if( foundCrossCheck ) break;
 	        }
 	    }
 	}

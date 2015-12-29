@@ -85,7 +85,7 @@ StereoPair::StereoPair(int lCamId, int rCamId, int _width, int _height, int camF
         cvNamedWindow("Right");
         
         // Set exposure and LED brightness
-        SetExposure(9);
+        SetExposure(30);
         SetLed(0);
     }
     
@@ -98,8 +98,8 @@ StereoPair::StereoPair(int lCamId, int rCamId, int _width, int _height, int camF
 // \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
 
 void StereoPair::setupDisparity(){
+    sgbm = StereoSGBM();
     if (defaultCamera) {
-        sgbm = StereoSGBM();
         sgbm.SADWindowSize = 11;
         sgbm.numberOfDisparities = 18*16;
         sgbm.preFilterCap = 27;
@@ -335,11 +335,14 @@ bool StereoPair::updateUnrectifiedPair(){
         flip(newFrameR, newFrameR, 0);  // Flip vertically
         flip(newFrameL, newFrameL, 1);  // Flip horizontally
         flip(newFrameR, newFrameR, 1);  // Flip horizontally
+        imgr = newFrameR;
+        imgl = newFrameL;
     }
-    
+    else {
     // For some reason, DUO3D left frame is right and vice-versa!!!
-    imgr = newFrameL;
-    imgl = newFrameR;
+        imgr = newFrameL;
+        imgl = newFrameR;
+    }
     
     return true;
 }
@@ -572,13 +575,13 @@ void StereoPair::saveUncalibratedStereoImages(string outputFolder)
         cvtColor(imgr, IR, COLOR_GRAY2BGR);
     	Mat LR = glueTwoImagesHorizontal(IL, IR);
         
-        //draw lines
-        for(int h=0; h<LR.rows; h+=25)
-        {
-            Point pt1(0, h);
-            Point pt2(LR.cols, h);
-            line(LR, pt1, pt2, CV_RGB(255, 123, 47), 1);
-        }
+//        //draw lines
+//        for(int h=0; h<LR.rows; h+=25)
+//        {
+//            Point pt1(0, h);
+//            Point pt2(LR.cols, h);
+//            line(LR, pt1, pt2, CV_RGB(255, 123, 47), 1);
+//        }
 
     	imshow("Uncalibrated stereo images", LR);
 
@@ -639,13 +642,13 @@ void StereoPair::saveCalibratedStereoImages(string outputFolder){
     	this->updateRectifiedPair();
     	Mat LR = glueTwoImagesHorizontal(imgl, imgr);
         
-        //draw lines
-        for(int h=0; h<LR.rows; h+=25)
-        {
-            Point pt1(0, h);
-            Point pt2(LR.cols, h);
-            line(LR, pt1, pt2, CV_RGB(255, 123, 47), 1);
-        }
+//        //draw lines
+//        for(int h=0; h<LR.rows; h+=25)
+//        {
+//            Point pt1(0, h);
+//            Point pt2(LR.cols, h);
+//            line(LR, pt1, pt2, CV_RGB(255, 123, 47), 1);
+//        }
     	
         imshow("Calibrated stereo images", LR);
 		// Wait for key press
@@ -780,7 +783,7 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
 	///////////INITIAL PARAMETERS//////////////
 	Size boardSize = Size(9, 6);	//Inner board corners
 	float squareSize = 0.022;       //The actual square size, in any unit (meters prefered)
-	int nimages = 9;				//Number of images to take for calibration
+	int nimages = 16;				//Number of images to take for calibration
     int maxScale = 2;
 
     vector<vector<Point2f> > imagePoints[2];

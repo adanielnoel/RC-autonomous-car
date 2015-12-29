@@ -4,9 +4,9 @@ The aim of this project is to develop an on-board computer vision system for an 
 
 ##Version 0.9 (16 Jun 2015)
 - Part of the avoidance path planning algorithm has been rewritten. No known bugs so far.
-- Setting the DO_LOOP variable to true makes the stereoCam and the avoidance algorithms work together in real-time with a nice 2D visualisation using the Simulator.
+- Setting the DO_MAIN_LOOP variable to true makes the stereoCam and the avoidance algorithms work together in real-time with nice 2D visualisation using the Simulator.
 - 3D reprojection has been improved.
-- The global variables are now in a header file (`Globals.h`).
+- The global variables are now in the `Globals.h` header file.
 - Some improvements for populating obstacle scenarios from 3D maps.
 
 ##Version 0.5 (24 Apr 2015)

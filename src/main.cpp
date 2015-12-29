@@ -38,13 +38,13 @@ int main(int argc, char* argv[])
     StereoPair stereoCam = initStereo();
     float scenWidth = 3.0;  // meters
     float scenDepth = 2.0;  // meters
-    float squareSize = 0.01; // meters
+    float squareSize = 0.1; // meters
     //ObstacleScenario obstacleScenario(scenWidth, scenDepth, squareSize);
     
     Simulator simulator = Simulator(scenWidth, scenDepth, squareSize, Simulator::TYPE_AVOIDANCE, 1200);
     simulator.scenario.regionOfInterest = Rect(20, 200, WIDTH-20, 5);  //Region of the disparity map to convert into a grid obstacle map
     
-	while(DO_LOOP){
+	while(DO_MAIN_LOOP){
         ////////////////Camera update////////////////////
         stereoCam.updateRectifiedPair();
         stereoCam.updateDisparityImg(1);
