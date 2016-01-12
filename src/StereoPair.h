@@ -8,6 +8,9 @@
  *   - Depth map generation
  */
 
+#ifndef STEREOPAIR_H_
+#define STEREOPAIR_H_
+
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -26,9 +29,6 @@
 #include <DUOLib.h>
 //#include "cv.h"
 
-#ifndef STEREOPAIR_H_
-#define STEREOPAIR_H_
-
 
 using namespace cv;
 using namespace std;
@@ -41,51 +41,57 @@ struct Rectification
 };
 
 class StereoPair {
-
+private:
 	//Atributes
-    int             width;
-    int             height;
-    int             fps;
-    bool            defaultCamera;  // If true, uses the OpenCV VideoCapture class. Otherwise uses the DUO3D API.
-	Rectification	recti;			// Rectification maps
+    # ifdef DUO3D
+    static DUOInstance duoCam;      // DUO3D camera instance
+    static PDUOFrame   duoFrame;      // DUO3D stereo frame
+    # else
+    struct Webcam {
+        VideoCapture	left;
+        VideoCapture	right;
+    } webcam;
+    # endif
+    bool    useColorImages = false;
+    bool    flipped = false;
+    bool    swapped = false;
+    bool    canRectify = false;
+    
+    
+	Rectification	rectification;			// Rectification maps
 	StereoSGBM		sgbm;			// Disparity computation method
-	Mat				imgl;			// Rectified left image
-	Mat				imgr;			// Rectified right image
 	Mat				dsp;			// Disparity map (not normalized)
 	Mat				img3D;			// Depth map
 	Mat				Q;              // camera matrix from stereoRectify(..., Q, ...);
-	String			calibrationFile;//File path to the intrinsic and extrinsic parameters
-    bool            rectificationCorrect;
+    string          outputDirectory;
+    
     boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer3D;
     
 public:
+    string          calibration_parametersFile = "/Users/alejandrodanielnoel1/Documents/XCode projects/Autonomous_Car/data/stereo_calibration_parameters.xml";
+    Size            calibration_boardSize = Size(9, 6);
+    float           calibration_squareSize = 0.022;
+    int             calibration_numberOfImages = 16;
     ///////Public class constants/////////
-    static const bool USE_CUSTOM_REPROJECTION_METHOD;
-    static const bool USE_OPENCV_REPROJECTION_METHOD;
-    bool              cameraIsUpsideDown;
-    
-    ////////Web-cam///////
-    VideoCapture	camL;			// Left camera
-    VideoCapture	camR;			// right camera
-    /////DUO3D camera/////
-    static DUOInstance duoCam;      // DUO3D camera instance
-    static PDUOFrame   duoFrame;      // DUO3D stereo frame
-    //////////////////////
+    bool            cameraIsUpsideDown;
+    Mat				leftImage;			// Rectified left image
+    Mat				rightImage;			// Rectified right image
     
 	//Constructors and destructors
 	StereoPair();			//TODO: default constructor does nothing!
-	StereoPair(int lCamId, int rCamId, int _width, int _height, int camFPS, bool & success);
 
+    // New stuff
+    void updateImages(bool rectify);
+    void displayImages(bool rectified, bool drawLines);
+    
 	//Initialization methods
-	void setupRectification(String _calibrationFile = "");
+	void setupRectification(String calibrationFile = "");
 	void setupDisparity();
 
 	//Functions
-	Mat rectifyImage(const Mat& unrectifiedImage, const Rectification& recti, bool left);
-    bool updateUnrectifiedPair();
-	bool updateRectifiedPair();
+//	bool updateRectifiedPair();
     void updateDisparityImg(float scaleFactor);
-	void updateImg3D(bool useCustomMethod);
+	void updateImg3D();
     void resizeImages(float scaleFactor);
 	Mat glueTwoImagesHorizontal(Mat Img1, Mat Img2);
 	Mat glueTwoImagesVertical(Mat Img1, Mat Img2);
@@ -94,7 +100,6 @@ public:
 	void saveUncalibratedStereoImages(string outputFolder);		//on 's' key press saves stereo images. Useful to get chess board images.
 	void saveCalibratedStereoImages(string outputFolder);		//on 's' key press saves rectified images.
 	void displayDisparityMap(bool showImages = false, string outputFolder = "", bool useRectifiedImages = true);
-	void rectificationViewer(string outputFolder = "");			//Shows rectified images side to side with horizontal lines.
 	void calibrate(String outputFile, string outputFolder = "");	//Calibrate camera intrinsics and extrinsics
     Point3f getPixel3Dcoords(int pixX, int pixY, double disp);
     Mat reprojectTo3D(Mat disp);
@@ -104,15 +109,6 @@ public:
 	Mat getDisparityImg();
 	Mat getImg3D();
 	Mat getDisparityImgNormalised();
-
-	const Mat& getImgr() const {
-		return imgr;
-	}
-
-	const Mat& getImgl() const {
-		return imgl;
-	}
-
 };
 
 

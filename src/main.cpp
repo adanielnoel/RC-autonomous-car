@@ -34,7 +34,7 @@ using namespace std;
 int main(int argc, char* argv[])
 {
     performTests();
-
+    return 0;
     StereoPair stereoCam = initStereo();
     float scenWidth = 3.0;  // meters
     float scenDepth = 2.0;  // meters
@@ -46,9 +46,9 @@ int main(int argc, char* argv[])
     
 	while(DO_MAIN_LOOP){
         ////////////////Camera update////////////////////
-        stereoCam.updateRectifiedPair();
+        stereoCam.updateImages(true /*rectify*/);
         stereoCam.updateDisparityImg(1);
-        stereoCam.updateImg3D(StereoPair::USE_OPENCV_REPROJECTION_METHOD);
+        stereoCam.updateImg3D();
         /////////////Obstacle map update/////////////////
         Mat image3D = stereoCam.getImg3D();
         //imshow("image3D", image3D);

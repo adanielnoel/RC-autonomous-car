@@ -50,7 +50,7 @@ class Odometry {
 	StereoPair* 			camera;
 
 		//Parameters
-	static const float	MAXIMUM_EPIPOLAR_DIFFERENCE;//Maximum y difference between key points when DO_EPIPOLAR_FILTER is activated.
+    float maxEpipolarDifference = 15.0; //Maximum y difference between key points when DO_EPIPOLAR_FILTER is activated.
 	static const bool	DO_CROSS_CHECK = true;			//Enabling cross check ensures that each feature has one only match
 	static const bool	DO_EPIPOLAR_FILTER = true;		//Enables epipolar filter for matching stereo images
 

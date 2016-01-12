@@ -8,8 +8,6 @@
 
 #include "Odometry.h"
 
-const float	Odometry::MAXIMUM_EPIPOLAR_DIFFERENCE = 15;
-
 Odometry::Odometry(){
 	camera = new StereoPair();
 }
@@ -65,14 +63,14 @@ Odometry::~Odometry(){
 
 bool Odometry::updateOdometry(){
 	//TODO: explained at the end of the header file
-	camera->updateRectifiedPair();
-	Mat IL = camera->getImgl();
-	Mat IR = camera->getImgr();
+    camera->updateImages(true /*rectified*/);
+	Mat leftImage = camera->leftImage;
+	Mat rightImage = camera->rightImage;
 	vector<vector<KeyPoint> > newKeyPoints;
 	vector<Mat> newDescriptors;
 
 	//////////Get valid key points and descriptors (those which 3D coordinates can be calculated)///////
-	bool enoughKeypoints = processNewFrame(IL, IR, newKeyPoints, newDescriptors);
+	bool enoughKeypoints = processNewFrame(leftImage, rightImage, newKeyPoints, newDescriptors);
 	//Don't proceed is there aren't enough key points (less than MINIMUM_POINTS_FOR_PNP)
 	if(!enoughKeypoints) return false;
 
@@ -207,7 +205,7 @@ vector<DMatch> Odometry::filteredMatch(vector<KeyPoint> kp1, vector<KeyPoint> kp
             int id1 = FMatches.at(i).queryIdx;
             int id2 = FMatches.at(i).trainIdx;
             float hDiff = abs(kp1.at(id1).pt.y - kp2.at(id2).pt.y);
-            if (hDiff <= MAXIMUM_EPIPOLAR_DIFFERENCE) {
+            if (hDiff <= maxEpipolarDifference) {
                 _FMatches.push_back(FMatches.at(i));
             }
         }
@@ -223,17 +221,17 @@ void Odometry::showLRMatches(){
     Mat drawImg2; //For own drawing function
 
 	while(1){
-		camera->updateRectifiedPair();
-		Mat imgL = camera->getImgl();
-		Mat imgR = camera->getImgr();
+        camera->updateImages(true /*rectified*/);
+        Mat leftImage = camera->leftImage;
+        Mat rightImage = camera->rightImage;
 		vector<KeyPoint> kpL;
 		vector<KeyPoint> kpR;
 		Mat descL;
 		Mat descR;
 		vector<DMatch> filteredMatches;
 
-		computeFeatures(imgL, kpL, descL);
-		computeFeatures(imgR, kpR, descR);
+		computeFeatures(leftImage, kpL, descL);
+		computeFeatures(rightImage, kpR, descR);
 
 		if(kpL.empty() || kpR.empty()) continue;
 
@@ -241,7 +239,7 @@ void Odometry::showLRMatches(){
 
 		if(filteredMatches.empty()) continue;
 
-        drawMatches( imgL, kpL, imgR, kpR, filteredMatches, drawImg1, Scalar(0, 255, 0), Scalar(255, 0, 0));
+        drawMatches(leftImage, kpL, rightImage, kpR, filteredMatches, drawImg1, Scalar(0, 255, 0), Scalar(255, 0, 0));
 
        /* //OWN DRAWING FUNCTION
 
@@ -252,7 +250,7 @@ void Odometry::showLRMatches(){
 	    for(unsigned int i=0; i<filteredMatches.size(); i++){
 	    	Point2f point1 = kpL[filteredMatches[i].queryIdx].pt;
 	    	Point2f point2 = kpR[filteredMatches[i].trainIdx].pt;
-	    	if(abs(point1.y - point2.y) <= MAXIMUM_EPIPOLAR_DIFFERENCE){
+	    	if(abs(point1.y - point2.y) <= maxEpipolarDifference){
 	    		circle(drawImg2, point1, 2, Scalar(0, 255, 0));
 	    		line(drawImg2, point1, point2, Scalar(255, 0, 0));
 	        }

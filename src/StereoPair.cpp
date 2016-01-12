@@ -34,63 +34,89 @@ float constrain(float val, float min, float max){
     return val;
 }
 
-
-
-const bool StereoPair::USE_OPENCV_REPROJECTION_METHOD = 0;
-const bool StereoPair::USE_CUSTOM_REPROJECTION_METHOD = 1;
-
-StereoPair::StereoPair() {
-	// TODO Auto-generated constructor stub
-
+Mat StereoPair::glueTwoImagesHorizontal(Mat Img1, Mat Img2){
+    Mat LR(Img1.rows, Img1.cols+Img2.cols, Img1.type());
+    
+    //Place each image horizontally adjacent to each other
+    Mat left_roi(LR, Rect(0, 0, Img1.cols, Img1.rows));
+    Img1.copyTo(left_roi);
+    Mat right_roi(LR, Rect(Img1.cols, 0, Img2.cols, Img2.rows)); // Copy constructor
+    Img2.copyTo(right_roi);
+    
+    return LR;
 }
 
-StereoPair::StereoPair(int lCamId, int rCamId, int _width, int _height, int camFPS, bool & success){
-    width = _width;
-    height = _height;
-    fps = camFPS;
-    cameraIsUpsideDown = false;
-    if (lCamId != rCamId) {
-        defaultCamera = true;
-        //Open and configure cameras
-        camL = VideoCapture();
-        camR = VideoCapture();
-        camL.open(lCamId);
-        camL.set(CV_CAP_PROP_FPS, camFPS);
-        camR.open(rCamId);
-        camR.set(CV_CAP_PROP_FPS, camFPS);
-        //Check and print camera info
-        Size imageSize;
-        if(!camL.isOpened()){ cout << "Cannot open left camera" << endl; success = false;}
-        if(!camR.isOpened()){ cout << "Cannot open right camera" << endl; success = false;}
-        if(camL.isOpened() && camR.isOpened()){ //print frame size
-            imageSize.width = camL.get(CV_CAP_PROP_FRAME_WIDTH);
-            imageSize.height = camL.get(CV_CAP_PROP_FRAME_HEIGHT);
-            cout << "Left camera frame size : " << imageSize.width << " x " << imageSize.height << endl;
-            imageSize.width = camR.get(CV_CAP_PROP_FRAME_WIDTH);
-            imageSize.height = camR.get(CV_CAP_PROP_FRAME_HEIGHT);
-            cout << "Right camera frame size : " << imageSize.width << " x " << imageSize.height << endl;
-            success = true;
-        }
-    }
-    else {
-        defaultCamera = false;
-        if(!OpenDUOCamera(width, height, fps))
-        {
-            printf("Could not open DUO camera\n");
-            success = false;
-        }
-        else success = true;
-        // Create OpenCV windows
-        cvNamedWindow("Left");
-        cvNamedWindow("Right");
-        
-        // Set exposure and LED brightness
-        SetExposure(30);
-        SetLed(0);
-    }
+Mat StereoPair::glueTwoImagesVertical(Mat Img1, Mat Img2){
+    Mat LR(Img1.rows+Img2.rows, Img1.cols, Img1.type());
+    
+    //Place each image vertically adjacent to each other
+    Mat top_roi(LR, Rect(0, 0, Img1.cols, Img1.rows));
+    Img1.copyTo(top_roi);
+    Mat bottom_roi(LR, Rect(0, Img1.rows, Img2.cols, Img2.rows)); // Copy constructor
+    Img2.copyTo(bottom_roi);
+    
+    return LR;
+}
+
+
+StereoPair::StereoPair(){
+# ifdef DUO3D
+    assert(OpenDUOCamera(width, height, fps));
+    // Set exposure and LED brightness
+    SetExposure(30);
+    SetLed(0);
+# else
+    //Open and configure cameras
+    webcam.left = VideoCapture();
+    webcam.right = VideoCapture();
+    assert(webcam.left.open(1));
+    assert(webcam.right.open(2));
+# endif
     
 	//Setup Semi Global Block Matching object
 	this->setupDisparity();
+}
+
+void StereoPair::updateImages(bool rectify) {
+    Mat newFrameL, newFrameR;
+    
+# ifdef DUO3D
+    // Capture DUO frame
+    PDUOFrame pFrameData = GetDUOFrame();
+    if(pFrameData == NULL) return false;
+    IplImage *left = cvCreateImageHeader(cvSize(width, height), IPL_DEPTH_8U, 1);
+    IplImage *right = cvCreateImageHeader(cvSize(width, height), IPL_DEPTH_8U, 1);
+    // Set the image data
+    left->imageData = (char*)pFrameData->leftData;
+    right->imageData = (char*)pFrameData->rightData;
+    newFrameL = left;
+    newFrameR = right;
+    
+# else
+    //First grab the undecoded frames, as this is a fast operation and thus the delay between captures will be lower
+    assert(webcam.left.grab());
+    assert(webcam.right.grab());
+    assert(webcam.left.retrieve(newFrameL));
+    assert(webcam.right.retrieve(newFrameR));
+    if (!useColorImages) {
+        cvtColor(newFrameL,newFrameL,CV_RGB2GRAY);
+        cvtColor(newFrameR,newFrameR,CV_RGB2GRAY);
+    }
+# endif
+    
+    if (flipped) {
+        flip(newFrameL, newFrameL, 0);  // Flip vertically
+        flip(newFrameR, newFrameR, 0);  // Flip vertically
+        flip(newFrameL, newFrameL, 1);  // Flip horizontally
+        flip(newFrameR, newFrameR, 1);  // Flip horizontally
+    }
+    rightImage = swapped? newFrameL : newFrameR;
+    leftImage = swapped? newFrameR : newFrameL;
+    
+    if (rectify && canRectify) {
+        remap(leftImage, leftImage, rectification.rmap[0][0], rectification.rmap[0][1], CV_INTER_LINEAR, BORDER_TRANSPARENT);
+        remap(rightImage, rightImage, rectification.rmap[1][0], rectification.rmap[1][1], CV_INTER_LINEAR, BORDER_TRANSPARENT);
+    }
 }
 
 // ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -99,275 +125,130 @@ StereoPair::StereoPair(int lCamId, int rCamId, int _width, int _height, int camF
 
 void StereoPair::setupDisparity(){
     sgbm = StereoSGBM();
-    if (defaultCamera) {
-        sgbm.SADWindowSize = 11;
-        sgbm.numberOfDisparities = 18*16;
-        sgbm.preFilterCap = 27;
-        sgbm.minDisparity = 0;
-        sgbm.uniquenessRatio = 10;
-        sgbm.speckleWindowSize = 16;
-        sgbm.speckleRange = 60;
-        sgbm.disp12MaxDiff = -80;
-        sgbm.fullDP = false;
-        sgbm.P1 = 8*sgbm.SADWindowSize*sgbm.SADWindowSize;
-        sgbm.P2 = 32*sgbm.SADWindowSize*sgbm.SADWindowSize;
-    }
-    
-    else{
-        sgbm.SADWindowSize = 5;
-        sgbm.numberOfDisparities = 192;
-        sgbm.preFilterCap = 9;
-        sgbm.minDisparity = 5;
-        sgbm.uniquenessRatio = 18;
-        sgbm.speckleWindowSize = 83;
-        sgbm.speckleRange = 95;
-        sgbm.disp12MaxDiff = 25;
-        sgbm.fullDP = true;
-        sgbm.P1 = 240;
-        sgbm.P2 = 2339;
-    }
+    sgbm.SADWindowSize = 5;
+    sgbm.numberOfDisparities = 192;
+    sgbm.preFilterCap = 9;
+    sgbm.minDisparity = 5;
+    sgbm.uniquenessRatio = 18;
+    sgbm.speckleWindowSize = 83;
+    sgbm.speckleRange = 95;
+    sgbm.disp12MaxDiff = 25;
+    sgbm.fullDP = true;
+    sgbm.P1 = 240;
+    sgbm.P2 = 2339;
 }
 
 // ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // |||||||||||||||||||||||||||||||||||||setupRectification|||||||||||||||||||||||||||||||||||||||
 // \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
 
-void StereoPair::setupRectification(String _calibrationFile)
-{
-    if(_calibrationFile.empty()){
-        cout << "ERROR: Calibration file not found." << endl;
+void StereoPair::setupRectification(String calibrationFile) {
+    if(!calibrationFile.empty()){
+        calibration_parametersFile = calibrationFile;
+    }
+    
+    Mat R1, R2, P1, P2;
+    Mat rmap[2][2];
+    Rect validRoi[2];
+    
+    // Open calibration file
+    FileStorage fs(calibration_parametersFile, FileStorage::READ);
+    
+    // Read calibration file
+    if(!fs.isOpened()){
+        cout << "Calibration file was not found" << endl;
+        cout << "Do you want to calibrate now? (y/n): " << endl;
         return;
     }
-    calibrationFile = _calibrationFile;
-	Mat R1, R2, P1, P2;
-	Mat rmap[2][2];
-	Rect validRoi[2];
+    else{
+        Size imageSize;
+        Mat cameraMatrix0, cameraMatrix1, distCoeffs0, distCoeffs1, imgSize, RInitial, TInitial;
+        fs["Size"] >> imageSize;
+        fs["K1"] >> cameraMatrix0;
+        fs["distCoeffs1"] >> distCoeffs0;
+        fs["K2"] >> cameraMatrix1;
+        fs["distCoeffs1"] >> distCoeffs1;
+        fs["R"] >> RInitial;
+        fs["T"] >> TInitial;
+        
+        // Compute rectification mappings
+        stereoRectify(cameraMatrix0, distCoeffs0, cameraMatrix1, distCoeffs1, imageSize, RInitial, TInitial, R1, R2, P1, P2, Q, CALIB_ZERO_DISPARITY, 0, imageSize, &validRoi[0], &validRoi[1]);
+        initUndistortRectifyMap(cameraMatrix0, distCoeffs0, R1, P1, imageSize, CV_16SC2, rmap[0][0], rmap[0][1]);
+        initUndistortRectifyMap(cameraMatrix1, distCoeffs1, R2, P2, imageSize, CV_16SC2, rmap[1][0], rmap[1][1]);
+        
+        
+        // Save the rectification mappings
+        rectification.K = P1;
+        rectification.B = P2.at<double>(0, 3) / P2.at<double>(0, 0);
+        for(int i=0; i<2; i++)
+            for(int j=0; j<2; j++)
+                rectification.rmap[i][j] = rmap[i][j];
+        canRectify = true;
+    }
+}
 
-    rectificationCorrect = false; // initialize flag
+//// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+//// ||||||||||||||||||||||||||||||||||||||||rectifyImage||||||||||||||||||||||||||||||||||||||||||
+//// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
+//
+//Mat StereoPair::rectifyImage(const Mat& unrectifiedImage, const Rectification& recti, bool left)
+//{
+//	Mat rectifiedImage;
+//
+//	if(left)
+//		remap(unrectifiedImage, rectifiedImage, recti.rmap[0][0], recti.rmap[0][1], CV_INTER_LINEAR, BORDER_TRANSPARENT);
+//	else
+//		remap(unrectifiedImage, rectifiedImage, recti.rmap[1][0], recti.rmap[1][1], CV_INTER_LINEAR, BORDER_TRANSPARENT);
+//
+////	rectifiedImage = unrectifiedImage;
+//	return rectifiedImage;
+//}
+
+
+
+void StereoPair::displayImages(bool rectified, bool drawLines) {
+    // Create visualization windows
+    if (rectified) namedWindow("Rectified stereo images", CV_WINDOW_NORMAL);
+    else namedWindow("Uncalibrated stereo images", CV_WINDOW_NORMAL);
+    // Reset frame counter
+    int frameCount = 0;
     
-	// Open calibration file
-	FileStorage fs(calibrationFile, FileStorage::READ);
-    
-	// Read calibration file
-	if(!fs.isOpened())
-		cout << "Calibration file was not found" << endl;
-	else{
-		Size imageSize;
-		Mat cameraMatrix0, cameraMatrix1, distCoeffs0, distCoeffs1, imgSize, RInitial, TInitial;
-		fs["Size"] >> imageSize;
-		fs["K1"] >> cameraMatrix0;
-		fs["distCoeffs1"] >> distCoeffs0;
-		fs["K2"] >> cameraMatrix1;
-		fs["distCoeffs1"] >> distCoeffs1;
-		fs["R"] >> RInitial;
-		fs["T"] >> TInitial;
+    for (;;) {
+        updateImages(rectified);
+        Mat LR = glueTwoImagesHorizontal(leftImage, rightImage);
         
-		// Compute rectification mappings
-		stereoRectify(cameraMatrix0, distCoeffs0, cameraMatrix1, distCoeffs1, imageSize, RInitial, TInitial, R1, R2, P1, P2, Q, CALIB_ZERO_DISPARITY, 0, imageSize, &validRoi[0], &validRoi[1]);
-		initUndistortRectifyMap(cameraMatrix0, distCoeffs0, R1, P1, imageSize, CV_16SC2, rmap[0][0], rmap[0][1]);
-		initUndistortRectifyMap(cameraMatrix1, distCoeffs1, R2, P2, imageSize, CV_16SC2, rmap[1][0], rmap[1][1]);
-        
-        rectificationCorrect = true;
-        
-        /*
-        calibrationFile = "/Users/alejandrodanielnoel1/Desktop/q.xml";
-        FileStorage fs(calibrationFile.c_str(), CV_STORAGE_WRITE);
-        if( fs.isOpened() )
-        {
-            cout << "Saving Q" << endl;
-            fs << "Q" << Q;
-            fs.release();
-            cout << "Parameters saved" << endl;
+        if (drawLines) {
+            cvtColor(LR, LR, COLOR_GRAY2BGR);   // Convert to BGR (RGB) color space for drawing coloured lines.
+            for(int h=0; h<LR.rows; h+=25) {
+                Point pt1(0, h);
+                Point pt2(LR.cols, h);
+                line(LR, pt1, pt2, CV_RGB(255, 123, 47), 1);
+            }
+            
         }
-         */
+        imshow("Uncalibrated stereo images", LR);
         
+        int keyPressed = waitKey(10);
         
-		// Save the rectification mappings
-		recti.K = P1;
-		recti.B = P2.at<double>(0, 3) / P2.at<double>(0, 0);
-		for(int i=0; i<2; i++)
-		for(int j=0; j<2; j++)
-			recti.rmap[i][j] = rmap[i][j];
-	}
-}
-
-// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// ||||||||||||||||||||||||||||||||||||||||rectifyImage||||||||||||||||||||||||||||||||||||||||||
-// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
-
-Mat StereoPair::rectifyImage(const Mat& unrectifiedImage, const Rectification& recti, bool left)
-{
-	Mat rectifiedImage;
-
-	if(left)
-		remap(unrectifiedImage, rectifiedImage, recti.rmap[0][0], recti.rmap[0][1], CV_INTER_LINEAR, BORDER_TRANSPARENT);
-	else
-		remap(unrectifiedImage, rectifiedImage, recti.rmap[1][0], recti.rmap[1][1], CV_INTER_LINEAR, BORDER_TRANSPARENT);
-
-//	rectifiedImage = unrectifiedImage;
-	return rectifiedImage;
-}
-
-// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// ||||||||||||||||||||||||||||||||glueTwoImagesHorizontal|||||||||||||||||||||||||||||||||||||||
-// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
-
-Mat StereoPair::glueTwoImagesHorizontal(Mat Img1, Mat Img2){
-	Mat LR(Img1.rows, Img1.cols+Img2.cols, Img1.type());
-
-	//Place each image horizontally adjacent to each other
-	Mat left_roi(LR, Rect(0, 0, Img1.cols, Img1.rows));
-	Img1.copyTo(left_roi);
-	Mat right_roi(LR, Rect(Img1.cols, 0, Img2.cols, Img2.rows)); // Copy constructor
-	Img2.copyTo(right_roi);
-
-	return LR;
-}
-
-// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// |||||||||||||||||||||||||||||||||glueTwoImagesVertical||||||||||||||||||||||||||||||||||||||||
-// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
-
-Mat StereoPair::glueTwoImagesVertical(Mat Img1, Mat Img2){
-	Mat LR(Img1.rows+Img2.rows, Img1.cols, Img1.type());
-
-	//Place each image vertically adjacent to each other
-	Mat top_roi(LR, Rect(0, 0, Img1.cols, Img1.rows));
-	Img1.copyTo(top_roi);
-	Mat bottom_roi(LR, Rect(0, Img1.rows, Img2.cols, Img2.rows)); // Copy constructor
-	Img2.copyTo(bottom_roi);
-
-	return LR;
-}
-
-// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// |||||||||||||||||||||||||||||||||||rectificationViewer||||||||||||||||||||||||||||||||||||||||
-// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
-
-void StereoPair::rectificationViewer(string outputFolder)
-{
-	cout << "Showing rectification" << endl;
-	namedWindow("Rectification", CV_WINDOW_AUTOSIZE);
-	int frameId = 0;
-	while(1){
-		this->updateRectifiedPair();
-		Mat IL, IR;
-        cvtColor(imgl, IL, COLOR_GRAY2BGR);
-        cvtColor(imgr, IR, COLOR_GRAY2BGR);
-
-		// set both images horizontally adjacent
-		Mat LR = glueTwoImagesHorizontal(IL, IR);
-
-		//draw lines
-		for(int h=0; h<LR.rows; h+=25)
-		{
-			Point pt1(0, h);
-			Point pt2(LR.cols, h);
-			line(LR, pt1, pt2, CV_RGB(255, 123, 47), 1);
-		}
-
-		// Show the image
-		imshow("Rectification", LR);
-
-		int keyPressed = waitKey(20);
-
-		if( keyPressed==83 || keyPressed==115)
-		{
-			cout << "Saving image pairs..." << endl;
-
-			if(!outputFolder.empty()){
-				// Create the file names for saving the images
-				char fileName[256];
-				sprintf(fileName, "%sRectified_LR_%d.png", outputFolder.c_str(), frameId);
-
-				// Write the images
-				try {
-					imwrite(fileName, LR);
-				}
-				catch (runtime_error& ex) {
-					fprintf(stderr, "Exception converting image to PNG format: %s \n", ex.what());
-				}
-			}
-
-			// Increment the frame id
-			frameId++;
-		}
-		// Exit if 'esc' key is pressed
-        if( keyPressed==27)
-		{
-			cout << "ESC key is pressed by user" << endl;
-			break;
-		}
-	}
-	destroyWindow("Rectification");
-}
-
-// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// |||||||||||||||||||||||||||||||||updateUnrectifiedPair||||||||||||||||||||||||||||||||||||||||
-// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
-
-bool StereoPair::updateUnrectifiedPair(){
-    Mat newFrameL, newFrameR;
-    
-    if (defaultCamera) {
-        //get new (unrectified) frames
-        if (!camL.read(newFrameL)) return false;
-        if (!camR.read(newFrameR)) return false;
-        //Convert to grey scale
-        cvtColor(newFrameL,newFrameL,CV_RGB2GRAY);
-        cvtColor(newFrameR,newFrameR,CV_RGB2GRAY);
-    }
-    else {
-        // Capture DUO frame
-        PDUOFrame pFrameData = GetDUOFrame();
-        if(pFrameData == NULL) return false;
-        IplImage *left = cvCreateImageHeader(cvSize(width, height), IPL_DEPTH_8U, 1);
-        IplImage *right = cvCreateImageHeader(cvSize(width, height), IPL_DEPTH_8U, 1);
-        // Set the image data
-        left->imageData = (char*)pFrameData->leftData;
-        right->imageData = (char*)pFrameData->rightData;
-        newFrameL = left;
-        newFrameR = right;
+        // Save the images if 's' or 'S' key has been pressed
+        if( keyPressed==83 || keyPressed==115) {
+            saveImage(leftImage, (rectified? "Rectified_L_" + to_string(frameCount) : "Uncalibrated_L_" + to_string(frameCount)), outputDirectory);
+            saveImage(rightImage, (rectified? "Rectified_R_" + to_string(frameCount) : "Uncalibrated_R_" + to_string(frameCount)), outputDirectory);
+            if (drawLines) saveImage(LR, "StereoPair" + to_string(frameCount), outputDirectory);
+            frameCount++;
+        }
+        
+        // Exit if 'esc' key is pressed
+        if( keyPressed==27) {
+            cout << "ESC key is pressed by user" << endl;
+            break;
+        }
+        
     }
     
-    if (cameraIsUpsideDown) {
-        flip(newFrameL, newFrameL, 0);  // Flip vertically
-        flip(newFrameR, newFrameR, 0);  // Flip vertically
-        flip(newFrameL, newFrameL, 1);  // Flip horizontally
-        flip(newFrameR, newFrameR, 1);  // Flip horizontally
-        imgr = newFrameR;
-        imgl = newFrameL;
-    }
-    else {
-    // For some reason, DUO3D left frame is right and vice-versa!!!
-        imgr = newFrameL;
-        imgl = newFrameR;
-    }
-    
-    return true;
-}
-
-// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// ||||||||||||||||||||||||||||||||||updateRectifiedPair|||||||||||||||||||||||||||||||||||||||||
-// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
-
-bool StereoPair::updateRectifiedPair()
-{
-    //Get the images
-    if (!updateUnrectifiedPair()){ // If the images where not retrieved, print error.
-        cout << "Error: Could not get any image from the camera." << endl;
-        return false;
-    }
-    if (!rectificationCorrect) {
-        cout << "Images not rectified because camera calibration file was not found." << endl;
-        return false;
-    }
-    
-	// Rectify the frames
-	imgl = rectifyImage(imgl, recti, true);
-	imgr = rectifyImage(imgr, recti, false);
-
-	return true;
+    // Close the windows
+    if (rectified) destroyWindow("Rectified stereo images");
+    else destroyWindow("Uncalibrated stereo images");
 }
 
 // ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -386,8 +267,8 @@ void StereoPair::resizeImages(float scaleFactor){
      *
      */
     //RESIZE IMAGE FOR TESTING DIFFERENT RESOLUTIONS
-     resize(imgl, imgl, Size(), scaleFactor, scaleFactor, INTER_CUBIC);
-     resize(imgr, imgr, Size(), scaleFactor, scaleFactor, INTER_CUBIC);
+     resize(leftImage, leftImage, Size(), scaleFactor, scaleFactor, INTER_CUBIC);
+     resize(rightImage, rightImage, Size(), scaleFactor, scaleFactor, INTER_CUBIC);
 }
 
 // ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -395,7 +276,7 @@ void StereoPair::resizeImages(float scaleFactor){
 // \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
 
 void StereoPair::updateDisparityImg(float scaleFactor){
-	Mat imL, imR, rimgl, rimgr;
+	Mat imL, imR, rleftImage, rrightImage;
     /*
      * RESIZE INTERPOLATION METHODS
      *
@@ -406,9 +287,9 @@ void StereoPair::updateDisparityImg(float scaleFactor){
      * INTER_LANCZOS4 - a Lanczos interpolation over 8x8 pixel neighborhood
      *
      */
-	resize(imgl, rimgl, Size(), scaleFactor, scaleFactor, INTER_AREA);
-	resize(imgr, rimgr, Size(), scaleFactor, scaleFactor, INTER_AREA);
-    sgbm(rimgl, rimgr, dsp);
+	resize(leftImage, rleftImage, Size(), scaleFactor, scaleFactor, INTER_AREA);
+	resize(rightImage, rrightImage, Size(), scaleFactor, scaleFactor, INTER_AREA);
+    sgbm(rleftImage, rrightImage, dsp);
     resize(dsp, dsp, Size(), 1/scaleFactor, 1/scaleFactor, INTER_AREA);
 }
 
@@ -470,64 +351,56 @@ void StereoPair::run3DVisualizer(){
 // |||||||||||||||||||||||||||||||||||||||updateImg3D||||||||||||||||||||||||||||||||||||||||||||
 // \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
 
-void StereoPair::updateImg3D(bool useCustomMethod){
+void StereoPair::updateImg3D(){
     img3D = Mat(dsp.size(), CV_32FC3);
-    if (useCustomMethod) {
-        //Get the interesting parameters from Q
-        double Q03, Q13, Q23, Q32, Q33;
-        Q03 = Q.at<double>(0,3);    //cx
-        Q13 = Q.at<double>(1,3);    //cy
-        Q23 = Q.at<double>(2,3);    //f 
-        Q32 = Q.at<double>(3,2);    //
-        Q33 = Q.at<double>(3,3);
-        
-        double px, py, pz;
-        Mat dspn = this->getDisparityImg();
-        double minX = 10000000, maxX = 0;
-        double minY = 10000000, maxY = 0;
-        double minZ = 10000000, maxZ = 0;
-        for (int i = 0; i < dspn.rows; i++)
-        {
-            uchar* disp_ptr = dspn.ptr<uchar>(i);
+    //Get the interesting parameters from Q
+    double Q03, Q13, Q23, Q32, Q33;
+    Q03 = Q.at<double>(0,3);    //cx
+    Q13 = Q.at<double>(1,3);    //cy
+    Q23 = Q.at<double>(2,3);    //f 
+    Q32 = Q.at<double>(3,2);    //
+    Q33 = Q.at<double>(3,3);
+    
+    double px, py, pz;
+    Mat dspn = this->getDisparityImg();
+    double minX = 10000000, maxX = 0;
+    double minY = 10000000, maxY = 0;
+    double minZ = 10000000, maxZ = 0;
+    for (int i = 0; i < dspn.rows; i++)
+    {
+        uchar* disp_ptr = dspn.ptr<uchar>(i);
 
-            for (int j = 0; j < dspn.cols; j++)
-            {
-                //Get 3D coordinates
-                double d = static_cast<double>(disp_ptr[j]);
-                if ( d == 0 ) continue; //Discard bad pixels
-                double pw = 1.0 * d * Q32 + Q33;
-                px = static_cast<double>(j) + Q03;
-                py = static_cast<double>(i) + Q13;
-                pz = Q23;
-                
-                px = px/pw;
-                py = py/pw;
-                pz = pz/pw;
-                if (pz == 0) continue;
-                if (pz > 0.3) continue;
-                //if (px > 1.0 || px < 1.0) continue;
-                //if (py > 1.0 || py < 1.0) continue;
-                if(px < minX) minX = px;
-                else if (px > maxX) maxX = px;
-                if(py < minY) minY = py;
-                else if (py > maxY) maxY = py;
-                if(pz < minZ) minZ = pz;
-                else if (pz > maxZ) maxZ = pz;
-                img3D.at<Vec3f>(i, j).val[0] = px;
-                img3D.at<Vec3f>(i, j).val[1] = -1*py;
-                img3D.at<Vec3f>(i, j).val[2] = pz;
-            }
+        for (int j = 0; j < dspn.cols; j++)
+        {
+            //Get 3D coordinates
+            double d = static_cast<double>(disp_ptr[j]);
+            if ( d == 0 ) continue; //Discard bad pixels
+            double pw = 1.0 * d * Q32 + Q33;
+            px = static_cast<double>(j) + Q03;
+            py = static_cast<double>(i) + Q13;
+            pz = Q23;
+            
+            px = px/pw;
+            py = py/pw;
+            pz = pz/pw;
+            if (pz == 0) continue;
+            if (pz > 0.3) continue;
+            //if (px > 1.0 || px < 1.0) continue;
+            //if (py > 1.0 || py < 1.0) continue;
+            if(px < minX) minX = px;
+            else if (px > maxX) maxX = px;
+            if(py < minY) minY = py;
+            else if (py > maxY) maxY = py;
+            if(pz < minZ) minZ = pz;
+            else if (pz > maxZ) maxZ = pz;
+            img3D.at<Vec3f>(i, j).val[0] = px;
+            img3D.at<Vec3f>(i, j).val[1] = -1*py;
+            img3D.at<Vec3f>(i, j).val[2] = pz;
         }
-        //cout << "minX: " << minX << "   maxX: " << maxX << endl;
-        //cout << "minY: " << minY << "   maxY: " << maxY << endl;
-        //cout << "minZ: " << minZ << "   maxZ: " << maxZ << endl;
     }
-    else {
-        Mat depthImage = Mat(dsp.rows, dsp.cols, dsp.type());
-        flip(dsp, depthImage, 1);  // reprojectImageTo3D() rotates the image, so we prevent this before
-        flip(depthImage, depthImage, 0);
-        reprojectImageTo3D(depthImage, img3D, Q);//, true, CV_32FC3);
-    }
+    //cout << "minX: " << minX << "   maxX: " << maxX << endl;
+    //cout << "minY: " << minY << "   maxY: " << maxY << endl;
+    //cout << "minZ: " << minZ << "   maxZ: " << maxZ << endl;
 }
 
 // ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -556,133 +429,6 @@ Mat StereoPair::getImg3D(){
 	return img3D;
 }
 
-// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// ||||||||||||||||||||||||||||||saveUncalibratedStereoImages||||||||||||||||||||||||||||||||||||
-// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
-
-void StereoPair::saveUncalibratedStereoImages(string outputFolder)
-{
-	// Create visualization windows
-	namedWindow("Uncalibrated stereo images", CV_WINDOW_NORMAL);
-
-	int frameId = 0;
-    Mat IL, IR;
-    
-	while(1)
-    {
-        this->updateUnrectifiedPair();
-        cvtColor(imgl, IL, COLOR_GRAY2BGR);
-        cvtColor(imgr, IR, COLOR_GRAY2BGR);
-    	Mat LR = glueTwoImagesHorizontal(IL, IR);
-        
-//        //draw lines
-//        for(int h=0; h<LR.rows; h+=25)
-//        {
-//            Point pt1(0, h);
-//            Point pt2(LR.cols, h);
-//            line(LR, pt1, pt2, CV_RGB(255, 123, 47), 1);
-//        }
-
-    	imshow("Uncalibrated stereo images", LR);
-
-		// Read key press
-		int keyPressed = waitKey(10);
-
-		// Save the images if 's' or 'S' key has been pressed
-		if( keyPressed==83 || keyPressed==115)
-		{
-			cout << "Saving uncalibrated image pairs..." << endl;
-
-			if(!outputFolder.empty()){
-				// Create the file names for saving the images
-				char fileName[256];
-				char fileName2[256];
-				sprintf(fileName, "%sUncalibCam0_%d.png", outputFolder.c_str(), frameId);
-				sprintf(fileName2, "%sUncalibCam1_%d.png", outputFolder.c_str(), frameId);
-
-				// Write the images
-				try {
-					imwrite(fileName, IL);
-					imwrite(fileName2, IR);
-				}
-				catch (runtime_error& ex) {
-					fprintf(stderr, "Exception converting image to PNG format: %s \n", ex.what());
-				}
-			}
-
-			// Increment the frame id
-			frameId++;
-		}
-
-		// Exit if 'esc' key is pressed
-        if( keyPressed==27)
-		{
-			cout << "ESC key is pressed by user" << endl;
-			break;
-		}
-
-    }
-
-	// Close the windows
-    destroyWindow("Left camera");
-    destroyWindow("Right camera");
-    printf("Saved %i calibration images \n", frameId);
-}
-
-// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// |||||||||||||||||||||||||||||||saveCalibratedStereoImages|||||||||||||||||||||||||||||||||||||
-// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
-
-void StereoPair::saveCalibratedStereoImages(string outputFolder){
-	namedWindow("Calibrated stereo images", CV_WINDOW_NORMAL);
-
-	int frameId = 0;
-    while(1)
-    {
-    	this->updateRectifiedPair();
-    	Mat LR = glueTwoImagesHorizontal(imgl, imgr);
-        
-//        //draw lines
-//        for(int h=0; h<LR.rows; h+=25)
-//        {
-//            Point pt1(0, h);
-//            Point pt2(LR.cols, h);
-//            line(LR, pt1, pt2, CV_RGB(255, 123, 47), 1);
-//        }
-    	
-        imshow("Calibrated stereo images", LR);
-		// Wait for key press
-		int keyPressed = waitKey(20);
-
-		// Save the images if required
-		if( keyPressed== 83 || keyPressed==115)
-		{
-            cout << "Saving calibrated image pairs..." << endl;
-			char fileName[256];
-			char fileName2[256];
-			sprintf(fileName, "%sCalibCam0_%d.png", outputFolder.c_str(), frameId);
-			sprintf(fileName2, "%sCalibCam1_%d.png", outputFolder.c_str(), frameId);
-
-			try {
-				imwrite(fileName, imgl);
-				imwrite(fileName2, imgr);
-			}
-			catch (runtime_error& ex) {
-				fprintf(stderr, "Exception converting image to PNG format: %s \n", ex.what());
-			}
-			frameId++;
-		}
-
-		// Exit when esc key is pressed
-        if( keyPressed== 27) break;
-
-    }
-
-    //Close windows and show how many image pairs where saved
-    destroyWindow("Left camera");
-    destroyWindow("Right camera");
-    printf("\nESC key pressed. Saved %i calibration images \n", frameId);
-}
 
 // ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 // ||||||||||||||||||||||||||||||||||displayDisparityMap|||||||||||||||||||||||||||||||||||||||||
@@ -712,11 +458,11 @@ void StereoPair::displayDisparityMap(bool showImages, string outputFolder, bool 
     cout << "Press \n's' to save disparity map\n'd' to launch the 3D visualizer\n'x' to print corrent SGBM parameters" << endl;
     
 	while(1){
-		this->updateRectifiedPair();
+        this->updateImages(true);
 		this->updateDisparityImg(scaleFactor);
 
 		if(showImages){
-			Mat d1 = glueTwoImagesHorizontal(imgl, imgr);
+			Mat d1 = glueTwoImagesHorizontal(leftImage, rightImage);
             imshow("Left — Right", d1);
 		}
 		Mat dispNorm = getDisparityImgNormalised();
@@ -737,7 +483,7 @@ void StereoPair::displayDisparityMap(bool showImages, string outputFolder, bool 
         
         // Run point cloud visualizer y 'd' or 'D' keys are pressed
         if(keyPressed== 68 || keyPressed==100) {
-            updateImg3D(USE_OPENCV_REPROJECTION_METHOD);
+            updateImg3D();
             run3DVisualizer();
         }
         
@@ -812,8 +558,8 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
     for( i = j = 0; j < nimages; i++ )
     {
     	while(1){
-            this->updateUnrectifiedPair();
-    		Mat niml = imgl, nimr = imgr;
+            this->updateImages(false /*rectify*/);
+    		Mat niml = leftImage, nimr = rightImage;
             Mat cimg1, cimg2;	//Corner images
             bool found = false;
             if( imageSize == Size() ) imageSize = niml.size();
@@ -872,7 +618,7 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
                     itersSinceLastPattern = 0;
                 }
             } else {
-                calibDisplay = glueTwoImagesHorizontal(imgl, imgr);
+                calibDisplay = glueTwoImagesHorizontal(leftImage, rightImage);
                 resize(calibDisplay, calibDisplay, Size(), windowResize, windowResize);
             }
             imshow("Live calibration view", calibDisplay);
@@ -884,10 +630,10 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
     		if( keyPressed==78 || keyPressed==110)
             {
                 if(k == 2){
-                    if (imgl.channels() > 1) cvtColor(imgl, imgl, CV_RGB2GRAY);
-                    if (imgr.channels() > 1) cvtColor(imgr, imgr, CV_RGB2GRAY);
-                    goodImages.push_back(imgl);
-                    goodImages.push_back(imgr);
+                    if (leftImage.channels() > 1) cvtColor(leftImage, leftImage, CV_RGB2GRAY);
+                    if (rightImage.channels() > 1) cvtColor(rightImage, rightImage, CV_RGB2GRAY);
+                    goodImages.push_back(leftImage);
+                    goodImages.push_back(rightImage);
                     j++;
                     cout << "Took a new image pair, remaining images: " << nimages - j << endl;
                     break;
@@ -992,8 +738,7 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
                   CALIB_ZERO_DISPARITY, 1, imageSize, &validRoi[0], &validRoi[1]);
 
     //////////Save calibration parameters//////////////////
-    calibrationFile = outputFile;
-    FileStorage fs(calibrationFile.c_str(), CV_STORAGE_WRITE);
+    FileStorage fs(calibration_parametersFile.c_str(), CV_STORAGE_WRITE);
     if( fs.isOpened() )
     {
     	cout << "Saving parameters" << endl;
@@ -1006,6 +751,6 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
     else cout << "CALIBRATION ERROR: Cannot save calibration results to file" << endl;
 
    //////////Once parameters are saved, reinitialize rectification from them////////////////
-    this->setupRectification(outputFile);
-    this->rectificationViewer();
+    this->setupRectification();
+    this->displayImages(true /*rectified*/, true /*drawLines*/);
 }

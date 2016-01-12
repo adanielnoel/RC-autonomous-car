@@ -24,14 +24,13 @@ const int STEREOCAM_RIGHT_ID = 1;
 const int STEREOCAM_FRAME_RATE = 10;
 
 //Stereo camera options
-const bool STEREOCAM_INIT = false;
-const bool STEREOCAM_CAMERA_IS_INVERTED = true;
+const bool STEREOCAM_INIT = true;
+const bool STEREOCAM_CAMERA_IS_INVERTED = false;
 const bool STEREOCAM_DUO3D = true;
 const bool STEREOCAM_RECTIFY_IMAGES = true;
 const bool STEREOCAM_CALIBRATE = false;
-const bool STEREOCAM_SHOW_RECTIFICATION = false;
-const bool STEREOCAM_SAVE_UNCALIBRATED_PAIRS = false;
-const bool STEREOCAM_SAVE_CALIBRATED_PAIRS = false;
+const bool STEREOCAM_SHOW_RECTIFIED = false;
+const bool STEREOCAM_SHOW_UNRECTIFIED = true;
 const bool STEREOCAM_SHOW_DISPARITY_MAP = false;
 
 //Odometry options
@@ -39,7 +38,7 @@ const bool ODOMETRY_INIT = false;
 const bool ODOMETRY_SHOW_MATCHES = true;
 
 //Path planning simulator options
-const bool PATHSIM_INIT = true;
+const bool PATHSIM_INIT = false;
 const bool PATHSIM_RUN_AVOIDANCE = true;
 const bool PATHSIM_RUN_NAVIGATION = false;
 
@@ -50,19 +49,12 @@ const bool ARDUINO_PERFORM_HAND_SHAKE = true;
 StereoPair initStereo(){
     bool initStereoSuccess = false;
     StereoPair sp;
-    if (STEREOCAM_DUO3D) {
-        // If left and right IDs are equal, then the camera is the DUO3D
-        sp = StereoPair(0, 0, 640, 480, STEREOCAM_FRAME_RATE, initStereoSuccess);
-    }
-    else {
-        sp = StereoPair(STEREOCAM_LEFT_ID, STEREOCAM_RIGHT_ID, 640, 480, STEREOCAM_FRAME_RATE, initStereoSuccess);
-    }
     if(!initStereoSuccess){
         cout << "\n**********FINNISHED WITH CAMERA INITIALIZATION ERROR*********" << endl;
         exit(EXIT_FAILURE);
     }
     
-    if(STEREOCAM_RECTIFY_IMAGES)            sp.setupRectification(CALIBRATION_FILE);
+    if(STEREOCAM_RECTIFY_IMAGES) sp.setupRectification();
     return sp;
 }
 
@@ -73,9 +65,8 @@ void performTests() {
         bool showImages;
         if(STEREOCAM_CAMERA_IS_INVERTED)        stereoCam.cameraIsUpsideDown = true;
         if(STEREOCAM_CALIBRATE)                 stereoCam.calibrate(CALIBRATION_FILE, OUTPUT_FOLDER);
-        if(STEREOCAM_SHOW_RECTIFICATION)        stereoCam.rectificationViewer(OUTPUT_FOLDER);
-        if(STEREOCAM_SAVE_UNCALIBRATED_PAIRS)   stereoCam.saveUncalibratedStereoImages(OUTPUT_FOLDER);
-        if(STEREOCAM_SAVE_CALIBRATED_PAIRS)     stereoCam.saveCalibratedStereoImages(OUTPUT_FOLDER);
+        if(STEREOCAM_SHOW_RECTIFIED)            stereoCam.displayImages(true /*rectified*/, true /*drawLines*/);
+        if(STEREOCAM_SHOW_UNRECTIFIED)          stereoCam.displayImages(false /*rectified*/, true /*drawLines*/);
         if(STEREOCAM_SHOW_DISPARITY_MAP)        stereoCam.displayDisparityMap(showImages = false, OUTPUT_FOLDER, STEREOCAM_RECTIFY_IMAGES);
     }
     
