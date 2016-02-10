@@ -1,0 +1,35 @@
+\hypertarget{class_odometry}{}\section{Odometry Class Reference}
+\label{class_odometry}\index{Odometry@{Odometry}}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\bfseries Odometry} (\hyperlink{class_stereo_pair}{Stereo\+Pair} \&\+\_\+camera)\hypertarget{class_odometry_a9d4581634044bd5c531fea9d7acbd257}{}\label{class_odometry_a9d4581634044bd5c531fea9d7acbd257}
+
+\item 
+bool {\bfseries update\+Odometry} ()\hypertarget{class_odometry_a938005b853ba6b5d569afe84f8c64cb0}{}\label{class_odometry_a938005b853ba6b5d569afe84f8c64cb0}
+
+\item 
+bool {\bfseries process\+New\+Frame} (Mat \&IL, Mat \&IR, vector$<$ vector$<$ Key\+Point $>$ $>$ \&kpts, vector$<$ Mat $>$ descriptors)\hypertarget{class_odometry_a93c6c62649731f05bf87c0432cc9010e}{}\label{class_odometry_a93c6c62649731f05bf87c0432cc9010e}
+
+\item 
+void {\bfseries compute\+Features} (Mat \&img, vector$<$ Key\+Point $>$ \&kp, Mat \&descriptors)\hypertarget{class_odometry_aa5dc6005b379454d5b1392724b3d4365}{}\label{class_odometry_aa5dc6005b379454d5b1392724b3d4365}
+
+\item 
+vector$<$ Point3f $>$ {\bfseries local\+To\+Global\+Coords} (vector$<$ Point3f $>$ local\+Coord\+Points, Mat T, Mat R)\hypertarget{class_odometry_a2f41c3852c1ee20e094a843870f8661f}{}\label{class_odometry_a2f41c3852c1ee20e094a843870f8661f}
+
+\item 
+vector$<$ D\+Match $>$ {\bfseries filtered\+Match} (vector$<$ Key\+Point $>$ kp1, vector$<$ Key\+Point $>$ kp2, Mat \&desc1, Mat \&desc2, bool do\+Cross\+Check=true, bool do\+Epipolar\+Filter=false)\hypertarget{class_odometry_aaaaea0a8361f845ca232e4c7bd8dd4ed}{}\label{class_odometry_aaaaea0a8361f845ca232e4c7bd8dd4ed}
+
+\item 
+Mat {\bfseries find\+Common\+Descriptors} (Mat desc1, Mat desc2, vector$<$ D\+Match $>$ \&matches)\hypertarget{class_odometry_af205c958c28548fdf40cb64b2d592690}{}\label{class_odometry_af205c958c28548fdf40cb64b2d592690}
+
+\item 
+void {\bfseries show\+L\+R\+Matches} ()\hypertarget{class_odometry_a64b00caa2807961959d73811e7ab77d0}{}\label{class_odometry_a64b00caa2807961959d73811e7ab77d0}
+
+\end{DoxyCompactItemize}
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+src/Odometry.\+h\item 
+src/Odometry.\+cpp\end{DoxyCompactItemize}

@@ -62,7 +62,7 @@ void ObstacleScenario::populateScenario(Mat &image3D, bool &obstaclesDetected) {
         return;
     }
 
-    float scaleFactor = 70.0;
+    float scaleFactor = 70.0;   // TODO: this is a dirty trick, the correct dimensions shoudn't need scaling.
     
     for (int x = regionOfInterest.x; x < regionOfInterest.width+regionOfInterest.x; x++) {
         float Z_average = 0;

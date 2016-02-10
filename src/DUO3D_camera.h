@@ -173,14 +173,15 @@ static bool OpenDUOCamera(int width, int height, float fps)
     
     char tmp[260];
     // Get and print some DUO parameter values
+    printf("Opening DUO camera");
     GetDUODeviceName(_duo,tmp);
-    printf("DUO Device Name:      '%s'\n", tmp);
+    printf("  DUO Device Name:      '%s'\n", tmp);
     GetDUOSerialNumber(_duo, tmp);
-    printf("DUO Serial Number:    %s\n", tmp);
+    printf("  DUO Serial Number:    %s\n", tmp);
     GetDUOFirmwareVersion(_duo, tmp);
-    printf("DUO Firmware Version: v%s\n", tmp);
+    printf("  DUO Firmware Version: v%s\n", tmp);
     GetDUOFirmwareBuild(_duo, tmp);
-    printf("DUO Firmware Build:   %s\n", tmp);
+    printf("  DUO Firmware Build:   %s\n\n", tmp);
     
     // Set selected resolution
     SetDUOResolutionInfo(_duo, ri);

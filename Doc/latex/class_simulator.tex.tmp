@@ -1,0 +1,79 @@
+\hypertarget{class_simulator}{}\section{Simulator Class Reference}
+\label{class_simulator}\index{Simulator@{Simulator}}
+
+
+Collaboration diagram for Simulator\+:
+% FIG 0
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\hyperlink{class_simulator_abcff19ed5f78ebd9cde4e67fb209e32b}{Simulator} (float width, float height, float square\+Size, int type, int window\+Width)
+\item 
+void {\bfseries run\+Simulation} ()\hypertarget{class_simulator_adfe488254b0356fa6e1bd3965519b73e}{}\label{class_simulator_adfe488254b0356fa6e1bd3965519b73e}
+
+\item 
+void {\bfseries avoidance\+Simulator} (bool auto\+Erase\+Columns)\hypertarget{class_simulator_ad37a393ac0a111a1eb06fe7a98c30704}{}\label{class_simulator_ad37a393ac0a111a1eb06fe7a98c30704}
+
+\item 
+void {\bfseries navigation\+Simulator} ()\hypertarget{class_simulator_a34ecffe8ce7e48a8742917ffbc1ea64e}{}\label{class_simulator_a34ecffe8ce7e48a8742917ffbc1ea64e}
+
+\item 
+Mat {\bfseries draw\+Scenario} ()\hypertarget{class_simulator_a45f7bd4a34709f34b7719fbdca6d461e}{}\label{class_simulator_a45f7bd4a34709f34b7719fbdca6d461e}
+
+\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+int {\bfseries simulator\+Type}\hypertarget{class_simulator_aff2a187522eeac1fbddd44dc566b52a0}{}\label{class_simulator_aff2a187522eeac1fbddd44dc566b52a0}
+
+\item 
+float {\bfseries fov}\hypertarget{class_simulator_a82f1cd4f785adae6e871f21893ea8eb5}{}\label{class_simulator_a82f1cd4f785adae6e871f21893ea8eb5}
+
+\item 
+float {\bfseries depth}\hypertarget{class_simulator_a6d406b0251d1349b26bf46203a20eb59}{}\label{class_simulator_a6d406b0251d1349b26bf46203a20eb59}
+
+\item 
+\hyperlink{class_obstacle_scenario}{Obstacle\+Scenario} {\bfseries scenario}\hypertarget{class_simulator_a6e6fcc226b5611afb855ce3c74812a8a}{}\label{class_simulator_a6e6fcc226b5611afb855ce3c74812a8a}
+
+\item 
+float {\bfseries square\+Real\+Size}\hypertarget{class_simulator_a308ed37c329e5690a0c0df39e65fa617}{}\label{class_simulator_a308ed37c329e5690a0c0df39e65fa617}
+
+\item 
+int {\bfseries square\+Pixel\+Size}\hypertarget{class_simulator_a6b2b21044da7bd49e4260d80dfdd1998}{}\label{class_simulator_a6b2b21044da7bd49e4260d80dfdd1998}
+
+\item 
+Mat {\bfseries display}\hypertarget{class_simulator_aa881a5cc3acd40532e0bdb98d906c110}{}\label{class_simulator_aa881a5cc3acd40532e0bdb98d906c110}
+
+\end{DoxyCompactItemize}
+\subsection*{Static Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+static const int {\bfseries T\+Y\+P\+E\+\_\+\+A\+V\+O\+I\+D\+A\+N\+CE} = 0\hypertarget{class_simulator_a933435568dac60b78ac416b4004476a9}{}\label{class_simulator_a933435568dac60b78ac416b4004476a9}
+
+\item 
+static const int {\bfseries T\+Y\+P\+E\+\_\+\+N\+A\+V\+I\+G\+A\+T\+I\+ON} = 1\hypertarget{class_simulator_a0b522d1b85508e999c548bbb630946aa}{}\label{class_simulator_a0b522d1b85508e999c548bbb630946aa}
+
+\item 
+static const int {\bfseries T\+Y\+P\+E\+\_\+\+N\+O\+NE} = 2\hypertarget{class_simulator_a6b5b83aab32a09a338ed3f41a7e5aed6}{}\label{class_simulator_a6b5b83aab32a09a338ed3f41a7e5aed6}
+
+\end{DoxyCompactItemize}
+
+
+\subsection{Constructor \& Destructor Documentation}
+\index{Simulator@{Simulator}!Simulator@{Simulator}}
+\index{Simulator@{Simulator}!Simulator@{Simulator}}
+\subsubsection[{\texorpdfstring{Simulator(float width, float height, float square\+Size, int type, int window\+Width)}{Simulator(float width, float height, float squareSize, int type, int windowWidth)}}]{\setlength{\rightskip}{0pt plus 5cm}Simulator\+::\+Simulator (
+\begin{DoxyParamCaption}
+\item[{float}]{width, }
+\item[{float}]{height, }
+\item[{float}]{square\+Size, }
+\item[{int}]{type, }
+\item[{int}]{window\+Width}
+\end{DoxyParamCaption}
+)}\hypertarget{class_simulator_abcff19ed5f78ebd9cde4e67fb209e32b}{}\label{class_simulator_abcff19ed5f78ebd9cde4e67fb209e32b}
+Grid dimensions 
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+src/Simulator.\+h\item 
+src/Simulator.\+cpp\end{DoxyCompactItemize}

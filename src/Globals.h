@@ -16,12 +16,12 @@ const string ARDUINO_SERIAL_PORT = "/dev/tty.usbmodem411";
 const int ARDUINO_BAUDRATE = 9600;
 
 //Main loop
-const bool DO_MAIN_LOOP = false; //This enables/disables the main loop
+const bool DO_MAIN_LOOP = true; //This enables/disables the main loop
 
 //Stereo camera parameters
 const int STEREOCAM_LEFT_ID = 2;
 const int STEREOCAM_RIGHT_ID = 1;
-const int STEREOCAM_FRAME_RATE = 10;
+// const int STEREOCAM_FRAME_RATE = 10;
 
 //Stereo camera options
 const bool STEREOCAM_INIT = true;
@@ -29,9 +29,9 @@ const bool STEREOCAM_CAMERA_IS_INVERTED = false;
 const bool STEREOCAM_DUO3D = true;
 const bool STEREOCAM_RECTIFY_IMAGES = true;
 const bool STEREOCAM_CALIBRATE = false;
-const bool STEREOCAM_SHOW_RECTIFIED = false;
+const bool STEREOCAM_SHOW_RECTIFIED = true;
 const bool STEREOCAM_SHOW_UNRECTIFIED = true;
-const bool STEREOCAM_SHOW_DISPARITY_MAP = false;
+const bool STEREOCAM_SHOW_DISPARITY_MAP = true;
 
 //Odometry options
 const bool ODOMETRY_INIT = false;
@@ -47,13 +47,7 @@ const bool ARDUINO_INIT_SERIAL_COMMUNICATION = false;
 const bool ARDUINO_PERFORM_HAND_SHAKE = true;
 
 StereoPair initStereo(){
-    bool initStereoSuccess = false;
-    StereoPair sp;
-    if(!initStereoSuccess){
-        cout << "\n**********FINNISHED WITH CAMERA INITIALIZATION ERROR*********" << endl;
-        exit(EXIT_FAILURE);
-    }
-    
+    StereoPair sp(WIDTH, HEIGHT, FPS);
     if(STEREOCAM_RECTIFY_IMAGES) sp.setupRectification();
     return sp;
 }
@@ -62,19 +56,19 @@ void performTests() {
     StereoPair stereoCam;
     if(STEREOCAM_INIT){
         stereoCam = initStereo();
-        bool showImages;
-        if(STEREOCAM_CAMERA_IS_INVERTED)        stereoCam.cameraIsUpsideDown = true;
+        if(STEREOCAM_CAMERA_IS_INVERTED)        stereoCam.flipUpsideDown();
         if(STEREOCAM_CALIBRATE)                 stereoCam.calibrate(CALIBRATION_FILE, OUTPUT_FOLDER);
         if(STEREOCAM_SHOW_RECTIFIED)            stereoCam.displayImages(true /*rectified*/, true /*drawLines*/);
         if(STEREOCAM_SHOW_UNRECTIFIED)          stereoCam.displayImages(false /*rectified*/, true /*drawLines*/);
-        if(STEREOCAM_SHOW_DISPARITY_MAP)        stereoCam.displayDisparityMap(showImages = false, OUTPUT_FOLDER, STEREOCAM_RECTIFY_IMAGES);
+        if(STEREOCAM_SHOW_DISPARITY_MAP)        stereoCam.displayDisparityMap();
     }
     
     
     /*********************************************************************************************************
      * Initialization of the Odometry object                                                                 *
      *                                                                                                       *
-     * The initOdometry method requires the number of iterations required to initialize the reference        *
+     * *** The following instructions are for a future implementation, as there is no code for it yet        *
+     * The initOdometry method requires the number of iterations to initialize the reference                 *
      * coordinate system.                                                                                    *
      * Only the features that survive all the iterations will be used to calculate the first 3D points.      *
      * A minimum of 3 points is needed for a successful initialization. Setting the iteration count too      *

@@ -5,6 +5,10 @@
 //     Page: http://futuretechmaker.com
 //
 
+#define WIDTH	640
+#define HEIGHT	480
+#define FPS		30
+#define DUO3D
 
 //#include "stdafx.h" //To compile on Windows
 #include "opencv2/highgui/highgui.hpp"
@@ -24,17 +28,14 @@
 #include "arduino_serial_lib.c"
 #include "Globals.h"
 
-#define WIDTH	640
-#define HEIGHT	480
-#define FPS		30
-
 using namespace cv;
 using namespace std;
 
 int main(int argc, char* argv[])
 {
-    performTests();
-    return 0;
+    // cout << getBuildInformation() << endl; // Print OpenCV build info
+    //performTests();
+    //return 0;
     StereoPair stereoCam = initStereo();
     float scenWidth = 3.0;  // meters
     float scenDepth = 2.0;  // meters
@@ -47,10 +48,10 @@ int main(int argc, char* argv[])
 	while(DO_MAIN_LOOP){
         ////////////////Camera update////////////////////
         stereoCam.updateImages(true /*rectify*/);
-        stereoCam.updateDisparityImg(1);
-        stereoCam.updateImg3D();
+        stereoCam.updateDisparityImg();
+        stereoCam.updateImage3D();
         /////////////Obstacle map update/////////////////
-        Mat image3D = stereoCam.getImg3D();
+        Mat image3D = stereoCam.image3D;
         //imshow("image3D", image3D);
         //waitKey(0);
         bool obstaclesDetected = false;
@@ -83,4 +84,8 @@ int main(int argc, char* argv[])
     
 	cout << "\n*****FINNISHED*****" << endl;
     return 0;
+}
+
+
+void realTimeApp(){
 }

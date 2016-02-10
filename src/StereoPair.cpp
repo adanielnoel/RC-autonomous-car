@@ -10,29 +10,34 @@
 #include "StereoPair.h"
 #include "DUO3D_camera.h"
 #include <DUOLib.h>
+#include "commonMethods.h"
 
-float mapValue(float val, float min1, float max1, float min2, float max2){
-    bool invertRet = false;
-    if (min2 > max2) {
-        float tmpMin = min2;
-        max2 = min2;
-        min2 = tmpMin;
-        invertRet = true;
+
+//————————————————————————————————————————————————————————————————————
+// saveImage
+//————————————————————————————————————————————————————————————————————
+
+bool StereoPair::saveImage(Mat image, string imageName, string outputDirectory) {
+    
+    if(!outputDirectory.empty()){
+        char fileName[256];
+        sprintf(fileName, "%s%s.png", outputDirectory.c_str(), imageName.c_str());
+        try {
+            imwrite(fileName, image);
+            return 1;
+        }
+        catch (std::runtime_error& ex){
+            fprintf(stderr, "Could not save image to store: %s \n", ex.what());
+        }
     }
-    if (invertRet) return (max2 - (((val - min1) * max2) / max1) - min2);
-    else return ((((val - min1) * max2) / max1) - min2);
+    else fprintf(stderr, "Output directory is not set. Image could not be saved.");
+    return false;
 }
 
-float constrain(float val, float min, float max){
-    if (min > max) {
-        float tmp = max;
-        max = min;
-        min = tmp;
-    }
-    if (val < min) val = min;
-    else if (val > max) val = max;
-    return val;
-}
+
+//————————————————————————————————————————————————————————————————————
+//  glueTwoImagesHorizontal
+//————————————————————————————————————————————————————————————————————
 
 Mat StereoPair::glueTwoImagesHorizontal(Mat Img1, Mat Img2){
     Mat LR(Img1.rows, Img1.cols+Img2.cols, Img1.type());
@@ -46,6 +51,11 @@ Mat StereoPair::glueTwoImagesHorizontal(Mat Img1, Mat Img2){
     return LR;
 }
 
+
+//————————————————————————————————————————————————————————————————————
+//  glueTwoImagesVertical
+//————————————————————————————————————————————————————————————————————
+
 Mat StereoPair::glueTwoImagesVertical(Mat Img1, Mat Img2){
     Mat LR(Img1.rows+Img2.rows, Img1.cols, Img1.type());
     
@@ -58,100 +68,59 @@ Mat StereoPair::glueTwoImagesVertical(Mat Img1, Mat Img2){
     return LR;
 }
 
+//————————————————————————————————————————————————————————————————————
+// Default initializer
+//————————————————————————————————————————————————————————————————————
 
 StereoPair::StereoPair(){
+    StereoPair(640, 480, 30);
+}
+
+
+//————————————————————————————————————————————————————————————————————
+// Initializer
+//————————————————————————————————————————————————————————————————————
+
+StereoPair::StereoPair(int width, int height, int fps){
+    imageWidth = width;
+    imageHeight = height;
+    
 # ifdef DUO3D
-    assert(OpenDUOCamera(width, height, fps));
+    if(!OpenDUOCamera(width, height, fps)){
+        cout << "\n*******CAMERA INITIALIZATION ERROR******" << endl;
+        exit(EXIT_FAILURE);
+    }
     // Set exposure and LED brightness
-    SetExposure(30);
+    SetExposure(100);
     SetLed(0);
 # else
     //Open and configure cameras
     webcam.left = VideoCapture();
     webcam.right = VideoCapture();
-    assert(webcam.left.open(1));
-    assert(webcam.right.open(2));
+    if(!webcam.left.open(1) || !webcam.right.open(2)){
+        cout << "\n*******CAMERA INITIALIZATION ERROR******" << endl;
+        exit(EXIT_FAILURE);
+    }
 # endif
     
+    // Setup rectification parameters and rectification maps
+    setupRectification();
 	//Setup Semi Global Block Matching object
-	this->setupDisparity();
+    setupDisparityParameters();
 }
 
-void StereoPair::updateImages(bool rectify) {
-    Mat newFrameL, newFrameR;
-    
-# ifdef DUO3D
-    // Capture DUO frame
-    PDUOFrame pFrameData = GetDUOFrame();
-    if(pFrameData == NULL) return false;
-    IplImage *left = cvCreateImageHeader(cvSize(width, height), IPL_DEPTH_8U, 1);
-    IplImage *right = cvCreateImageHeader(cvSize(width, height), IPL_DEPTH_8U, 1);
-    // Set the image data
-    left->imageData = (char*)pFrameData->leftData;
-    right->imageData = (char*)pFrameData->rightData;
-    newFrameL = left;
-    newFrameR = right;
-    
-# else
-    //First grab the undecoded frames, as this is a fast operation and thus the delay between captures will be lower
-    assert(webcam.left.grab());
-    assert(webcam.right.grab());
-    assert(webcam.left.retrieve(newFrameL));
-    assert(webcam.right.retrieve(newFrameR));
-    if (!useColorImages) {
-        cvtColor(newFrameL,newFrameL,CV_RGB2GRAY);
-        cvtColor(newFrameR,newFrameR,CV_RGB2GRAY);
-    }
-# endif
-    
-    if (flipped) {
-        flip(newFrameL, newFrameL, 0);  // Flip vertically
-        flip(newFrameR, newFrameR, 0);  // Flip vertically
-        flip(newFrameL, newFrameL, 1);  // Flip horizontally
-        flip(newFrameR, newFrameR, 1);  // Flip horizontally
-    }
-    rightImage = swapped? newFrameL : newFrameR;
-    leftImage = swapped? newFrameR : newFrameL;
-    
-    if (rectify && canRectify) {
-        remap(leftImage, leftImage, rectification.rmap[0][0], rectification.rmap[0][1], CV_INTER_LINEAR, BORDER_TRANSPARENT);
-        remap(rightImage, rightImage, rectification.rmap[1][0], rectification.rmap[1][1], CV_INTER_LINEAR, BORDER_TRANSPARENT);
-    }
-}
 
-// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// |||||||||||||||||||||||||||||||||||||setupDisparity|||||||||||||||||||||||||||||||||||||||||||
-// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
+//————————————————————————————————————————————————————————————————————
+//  setupRectification
+//————————————————————————————————————————————————————————————————————
 
-void StereoPair::setupDisparity(){
-    sgbm = StereoSGBM();
-    sgbm.SADWindowSize = 5;
-    sgbm.numberOfDisparities = 192;
-    sgbm.preFilterCap = 9;
-    sgbm.minDisparity = 5;
-    sgbm.uniquenessRatio = 18;
-    sgbm.speckleWindowSize = 83;
-    sgbm.speckleRange = 95;
-    sgbm.disp12MaxDiff = 25;
-    sgbm.fullDP = true;
-    sgbm.P1 = 240;
-    sgbm.P2 = 2339;
-}
-
-// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// |||||||||||||||||||||||||||||||||||||setupRectification|||||||||||||||||||||||||||||||||||||||
-// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
-
-void StereoPair::setupRectification(String calibrationFile) {
-    if(!calibrationFile.empty()){
-        calibration_parametersFile = calibrationFile;
-    }
-    
+void StereoPair::setupRectification() {
     Mat R1, R2, P1, P2;
     Mat rmap[2][2];
     Rect validRoi[2];
     
     // Open calibration file
+    string calibration_parametersFile = outputDirectory + calibration_ParametersFileName;
     FileStorage fs(calibration_parametersFile, FileStorage::READ);
     
     // Read calibration file
@@ -187,29 +156,64 @@ void StereoPair::setupRectification(String calibrationFile) {
     }
 }
 
-//// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-//// ||||||||||||||||||||||||||||||||||||||||rectifyImage||||||||||||||||||||||||||||||||||||||||||
-//// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
-//
-//Mat StereoPair::rectifyImage(const Mat& unrectifiedImage, const Rectification& recti, bool left)
-//{
-//	Mat rectifiedImage;
-//
-//	if(left)
-//		remap(unrectifiedImage, rectifiedImage, recti.rmap[0][0], recti.rmap[0][1], CV_INTER_LINEAR, BORDER_TRANSPARENT);
-//	else
-//		remap(unrectifiedImage, rectifiedImage, recti.rmap[1][0], recti.rmap[1][1], CV_INTER_LINEAR, BORDER_TRANSPARENT);
-//
-////	rectifiedImage = unrectifiedImage;
-//	return rectifiedImage;
-//}
+
+//————————————————————————————————————————————————————————————————————
+//  updateImages
+//————————————————————————————————————————————————————————————————————
+
+void StereoPair::updateImages(bool rectify) {
+    Mat newFrameL, newFrameR;
+    
+# ifdef DUO3D
+    // Capture DUO frame
+    PDUOFrame pFrameData = GetDUOFrame();
+    if(pFrameData == NULL) return;
+    IplImage *left =  cvCreateImageHeader(cvSize(imageWidth, imageHeight), IPL_DEPTH_8U, 1);
+    IplImage *right = cvCreateImageHeader(cvSize(imageWidth, imageHeight), IPL_DEPTH_8U, 1);
+    // Set the image data
+    left->imageData =  (char*)pFrameData->leftData;
+    right->imageData = (char*)pFrameData->rightData;
+    // DUO3D seems to have a bug and gives left image as right!
+    newFrameL = right;
+    newFrameR = left;
+    
+# else
+    //First grab the undecoded frames, as this is a fast operation and thus the delay between captures will be lower
+    assert(webcam.left.grab());
+    assert(webcam.right.grab());
+    assert(webcam.left.retrieve(newFrameL));
+    assert(webcam.right.retrieve(newFrameR));
+    if (!useColorImages) {
+        cvtColor(newFrameL,newFrameL,CV_RGB2GRAY);
+        cvtColor(newFrameR,newFrameR,CV_RGB2GRAY);
+    }
+# endif
+    if (flipped) {
+        flip(newFrameL, newFrameL, 0);  // Flip vertically
+        flip(newFrameR, newFrameR, 0);  // Flip vertically
+        flip(newFrameL, newFrameL, 1);  // Flip horizontally
+        flip(newFrameR, newFrameR, 1);  // Flip horizontally
+    }
+   
+    rightImage = swapped? newFrameL : newFrameR;
+    leftImage = swapped? newFrameR : newFrameL;
+    
+    if (rectify && canRectify) {
+        remap(leftImage, leftImage,   rectification.rmap[0][0], rectification.rmap[0][1], CV_INTER_LINEAR, BORDER_TRANSPARENT);
+        remap(rightImage, rightImage, rectification.rmap[1][0], rectification.rmap[1][1], CV_INTER_LINEAR, BORDER_TRANSPARENT);
+    }
+}
 
 
+//————————————————————————————————————————————————————————————————————
+//  displayImages
+//————————————————————————————————————————————————————————————————————
 
 void StereoPair::displayImages(bool rectified, bool drawLines) {
+    if(!canRectify) rectified = false;
     // Create visualization windows
-    if (rectified) namedWindow("Rectified stereo images", CV_WINDOW_NORMAL);
-    else namedWindow("Uncalibrated stereo images", CV_WINDOW_NORMAL);
+//    if (rectified) namedWindow("Rectified stereo images", CV_WINDOW_NORMAL);
+//    else namedWindow("Uncalibrated stereo images", CV_WINDOW_NORMAL);
     // Reset frame counter
     int frameCount = 0;
     
@@ -226,7 +230,8 @@ void StereoPair::displayImages(bool rectified, bool drawLines) {
             }
             
         }
-        imshow("Uncalibrated stereo images", LR);
+        if (rectified) imshow("Rectified stereo images", LR);
+        else imshow("Uncalibrated stereo images", LR);
         
         int keyPressed = waitKey(10);
         
@@ -251,9 +256,9 @@ void StereoPair::displayImages(bool rectified, bool drawLines) {
     else destroyWindow("Uncalibrated stereo images");
 }
 
-// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// ||||||||||||||||||||||||||||||||||||||||resizeImages||||||||||||||||||||||||||||||||||||||||||
-// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
+//————————————————————————————————————————————————————————————————————
+//  resizeImages
+//————————————————————————————————————————————————————————————————————
 
 void StereoPair::resizeImages(float scaleFactor){
     /*
@@ -271,43 +276,49 @@ void StereoPair::resizeImages(float scaleFactor){
      resize(rightImage, rightImage, Size(), scaleFactor, scaleFactor, INTER_CUBIC);
 }
 
-// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// |||||||||||||||||||||||||||||||||||updateDisparityImg||||||||||||||||||||||||||||||||||||||||||
-// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
+
+//————————————————————————————————————————————————————————————————————
+//  updateDisparityImg
+//————————————————————————————————————————————————————————————————————
 
 void StereoPair::updateDisparityImg(float scaleFactor){
-	Mat imL, imR, rleftImage, rrightImage;
-    /*
-     * RESIZE INTERPOLATION METHODS
-     *
-     * INTER_NEAREST - a nearest-neighbor interpolation
-     * INTER_LINEAR - a bilinear interpolation (used by default)
-     * INTER_AREA - resampling using pixel area relation. It may be a preferred method for image decimation, as it gives moire’-free results. But when the image is zoomed, it is similar to the INTER_NEAREST method.
-     * INTER_CUBIC - a bicubic interpolation over 4x4 pixel neighborhood
-     * INTER_LANCZOS4 - a Lanczos interpolation over 8x8 pixel neighborhood
-     *
-     */
-	resize(leftImage, rleftImage, Size(), scaleFactor, scaleFactor, INTER_AREA);
-	resize(rightImage, rrightImage, Size(), scaleFactor, scaleFactor, INTER_AREA);
-    sgbm(rleftImage, rrightImage, dsp);
-    resize(dsp, dsp, Size(), 1/scaleFactor, 1/scaleFactor, INTER_AREA);
+    if(scaleFactor != 1.0){
+        Mat scaledLeftImage, scaledRightImage;
+        int interpolationMethod = INTER_AREA;
+        /*
+         * RESIZE INTERPOLATION METHODS
+         *
+         * INTER_NEAREST - a nearest-neighbor interpolation
+         * INTER_LINEAR - a bilinear interpolation (used by default)
+         * INTER_AREA - resampling using pixel area relation. It may be a preferred method for image decimation, as it gives moire’-free results. But when the image is zoomed, it is similar to the INTER_NEAREST method.
+         * INTER_CUBIC - a bicubic interpolation over 4x4 pixel neighborhood
+         * INTER_LANCZOS4 - a Lanczos interpolation over 8x8 pixel neighborhood
+         *
+         */
+        resize(leftImage, scaledLeftImage, Size(), scaleFactor, scaleFactor, interpolationMethod);
+        resize(rightImage, scaledRightImage, Size(), scaleFactor, scaleFactor, interpolationMethod);
+        semiGlobalBlobMatch(scaledLeftImage, scaledRightImage, disparityMap);
+        resize(disparityMap, disparityMap, Size(), 1/scaleFactor, 1/scaleFactor, interpolationMethod);
+    }
+    
+    else semiGlobalBlobMatch(leftImage, rightImage, disparityMap);
 }
 
+//————————————————————————————————————————————————————————————————————
+//  displayImage3D
+//————————————————————————————————————————————————————————————————————
 
- // This function was used for testing and requires Point Cloud library.
- // It has been commented out to make distribution easier.
- 
-void StereoPair::run3DVisualizer(){
+void StereoPair::displayImage3D(){
     //Create point cloud and fill it
     std::cout << "Creating Point Cloud..." <<std::endl;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
     float minZ = 1000000, maxZ = 0;
-    for(int i = 0; i < img3D.cols; i++){
-        for(int j = 0; j < img3D.rows; j++){
+    for(int i = 0; i < image3D.cols; i++){
+        for(int j = 0; j < image3D.rows; j++){
             pcl::PointXYZRGB point;
-            point.x = float(img3D.at<Vec3f>(j, i).val[0]*100.0);
-            point.y = float(img3D.at<Vec3f>(j, i).val[1]*100.0);
-            point.z = float(img3D.at<Vec3f>(j, i).val[2]*100.0);
+            point.x = float(image3D.at<Vec3f>(j, i).val[0]*100.0);
+            point.y = float(image3D.at<Vec3f>(j, i).val[1]*100.0);
+            point.z = float(image3D.at<Vec3f>(j, i).val[2]*100.0);
             if(point.z < minZ) minZ = point.z;
             if (point.z > maxZ) maxZ = point.z;
             
@@ -347,12 +358,13 @@ void StereoPair::run3DVisualizer(){
     }
 }
 
-// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// |||||||||||||||||||||||||||||||||||||||updateImg3D||||||||||||||||||||||||||||||||||||||||||||
-// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
+//————————————————————————————————————————————————————————————————————
+//  updateImage3D
+//————————————————————————————————————————————————————————————————————
 
-void StereoPair::updateImg3D(){
-    img3D = Mat(dsp.size(), CV_32FC3);
+void StereoPair::updateImage3D(){
+    /*
+    image3D = Mat(disparityMap.size(), CV_32FC3);
     //Get the interesting parameters from Q
     double Q03, Q13, Q23, Q32, Q33;
     Q03 = Q.at<double>(0,3);    //cx
@@ -362,15 +374,14 @@ void StereoPair::updateImg3D(){
     Q33 = Q.at<double>(3,3);
     
     double px, py, pz;
-    Mat dspn = this->getDisparityImg();
     double minX = 10000000, maxX = 0;
     double minY = 10000000, maxY = 0;
     double minZ = 10000000, maxZ = 0;
-    for (int i = 0; i < dspn.rows; i++)
+    for (int i = 0; i < disparityMap.rows; i++)
     {
-        uchar* disp_ptr = dspn.ptr<uchar>(i);
+        uchar* disp_ptr = disparityMap.ptr<uchar>(i);
 
-        for (int j = 0; j < dspn.cols; j++)
+        for (int j = 0; j < disparityMap.cols; j++)
         {
             //Get 3D coordinates
             double d = static_cast<double>(disp_ptr[j]);
@@ -393,136 +404,102 @@ void StereoPair::updateImg3D(){
             else if (py > maxY) maxY = py;
             if(pz < minZ) minZ = pz;
             else if (pz > maxZ) maxZ = pz;
-            img3D.at<Vec3f>(i, j).val[0] = px;
-            img3D.at<Vec3f>(i, j).val[1] = -1*py;
-            img3D.at<Vec3f>(i, j).val[2] = pz;
+            image3D.at<Vec3f>(i, j).val[0] = px;
+            image3D.at<Vec3f>(i, j).val[1] = -1*py;
+            image3D.at<Vec3f>(i, j).val[2] = pz;
         }
     }
     //cout << "minX: " << minX << "   maxX: " << maxX << endl;
     //cout << "minY: " << minY << "   maxY: " << maxY << endl;
     //cout << "minZ: " << minZ << "   maxZ: " << maxZ << endl;
+     */
+    
+    image3D = Mat(disparityMap.size(), CV_32FC3);
+    reprojectImageTo3D(disparityMap, image3D, Q);
 }
 
-// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// ||||||||||||||||||||||||||||||||||||getDisparityImg|||||||||||||||||||||||||||||||||||||||||||
-// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
 
-Mat StereoPair::getDisparityImg(){
-	return dsp;
-}
+//————————————————————————————————————————————————————————————————————
+//  getDisparityImgNormalised
+//————————————————————————————————————————————————————————————————————
 
-// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// ||||||||||||||||||||||||||||||||getDisparityImgNormalised|||||||||||||||||||||||||||||||||||||
-// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
-
-Mat StereoPair::getDisparityImgNormalised(){
+Mat StereoPair::getDisparityImageNormalised(){
 	Mat dspn;
-	normalize(dsp, dspn, 0, 255, CV_MINMAX, CV_8U);
+	normalize(disparityMap, dspn, 0, 255, CV_MINMAX, CV_8U);
 	return dspn;
 }
 
-// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// ||||||||||||||||||||||||||||||||||||||||getImg3D||||||||||||||||||||||||||||||||||||||||||||||
-// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
 
-Mat StereoPair::getImg3D(){
-	return img3D;
-}
+//————————————————————————————————————————————————————————————————————
+//  displayDisparityMap
+//————————————————————————————————————————————————————————————————————
 
-
-// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// ||||||||||||||||||||||||||||||||||displayDisparityMap|||||||||||||||||||||||||||||||||||||||||
-// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
-
-void StereoPair::displayDisparityMap(bool showImages, string outputFolder, bool useRectifiedImages){
-	namedWindow("Disparity", CV_WINDOW_NORMAL);
-	namedWindow("Controls", CV_WINDOW_NORMAL);
-    if (showImages) {
-        namedWindow("Left — Right", CV_WINDOW_NORMAL);
-    }
-    createTrackbar("SADWindowSize", "Controls", &sgbm.SADWindowSize, 50);
-  //  createTrackbar("numberOfDisparities", "Controls", &sgbm.numberOfDisparities, 1000);
-    createTrackbar("preFilterCap", "Controls", &sgbm.preFilterCap, 100);
-    createTrackbar("minDisparity", "Controls", &sgbm.minDisparity, 100);
-    createTrackbar("uniquenessRatio", "Controls", &sgbm.uniquenessRatio, 100);
-    createTrackbar("speckleWindowSize", "Controls", &sgbm.speckleWindowSize, 300);
-    createTrackbar("speckleRange", "Controls", &sgbm.speckleRange, 100);
-    createTrackbar("disp12MaxDiff", "Controls", &sgbm.disp12MaxDiff, 100);
-    createTrackbar("P1", "Controls", &sgbm.P1, 3000);
-    createTrackbar("P2", "Controls", &sgbm.P2, 10000);
-
-	float scaleFactor = 0.50;
-	int whiteThreshold = 255;
-	int frameID = 0;
+void StereoPair::displayDisparityMap() {
+    namedWindow("Disparity", CV_WINDOW_NORMAL);
+    namedWindow("Controls", CV_WINDOW_NORMAL);
     
-    cout << "Press \n's' to save disparity map\n'd' to launch the 3D visualizer\n'x' to print corrent SGBM parameters" << endl;
+    createTrackbar("SADWindowSize", "Controls", &semiGlobalBlobMatch.SADWindowSize, 50);
+    //  createTrackbar("numberOfDisparities", "Controls", &sgbm.numberOfDisparities, 1000);
+    createTrackbar("preFilterCap", "Controls", &semiGlobalBlobMatch.preFilterCap, 100);
+    createTrackbar("minDisparity", "Controls", &semiGlobalBlobMatch.minDisparity, 100);
+    createTrackbar("uniquenessRatio", "Controls", &semiGlobalBlobMatch.uniquenessRatio, 100);
+    createTrackbar("speckleWindowSize", "Controls", &semiGlobalBlobMatch.speckleWindowSize, 300);
+    createTrackbar("speckleRange", "Controls", &semiGlobalBlobMatch.speckleRange, 100);
+    createTrackbar("disp12MaxDiff", "Controls", &semiGlobalBlobMatch.disp12MaxDiff, 100);
+    createTrackbar("P1", "Controls", &semiGlobalBlobMatch.P1, 3000);
+    createTrackbar("P2", "Controls", &semiGlobalBlobMatch.P2, 10000);
     
-	while(1){
-        this->updateImages(true);
-		this->updateDisparityImg(scaleFactor);
-
-		if(showImages){
-			Mat d1 = glueTwoImagesHorizontal(leftImage, rightImage);
-            imshow("Left — Right", d1);
-		}
-		Mat dispNorm = getDisparityImgNormalised();
-        for( int i = 0; i < dispNorm.rows; ++i){
-            for( int j = 0; j < dispNorm.cols; ++j ){
-            	Scalar intensity = dispNorm.at<uchar>(Point(j, i));
-            	if(intensity.val[0] > whiteThreshold){
-            		dispNorm.at<uchar>(Point(j, i)) = 0;
-            	}
-            }
-    	}
-
-        //resize(dispNorm, dispNorm, Size(), 1/scaleFactor, 1/scaleFactor, INTER_CUBIC);
-		imshow("Disparity", dispNorm);
-
-		// Wait for key press
-		int keyPressed = waitKey(20);
+    //int whiteThreshold = 255;
+    int frameCount = 0;
+    
+    cout << "Press \n's' to save disparity map\n'd' to launch the 3D visualizer\n'x' to save current SGBM parameters" << endl;
+    
+    while(1){
+        updateImages(true /*rectified*/);
+        updateDisparityImg();
+        Mat disparityMapNormalised = getDisparityImageNormalised();
         
-        // Run point cloud visualizer y 'd' or 'D' keys are pressed
+        //        Turn white points into black points
+        //        for( int i = 0; i < disparityMapNormalised.rows; ++i){
+        //            for( int j = 0; j < disparityMapNormalised.cols; ++j ){
+        //                Scalar intensity = disparityMapNormalised.at<uchar>(Point(j, i));
+        //                if(intensity.val[0] > whiteThreshold){
+        //                    dispNorm.at<uchar>(Point(j, i)) = 0;
+        //                }
+        //            }
+        //        }
+        
+        imshow("Disparity", disparityMapNormalised);
+        
+        // Wait for key press
+        int keyPressed = waitKey(20);
+        
+        // Run point cloud visualizer if 'd' or 'D' keys are pressed
         if(keyPressed== 68 || keyPressed==100) {
-            updateImg3D();
-            run3DVisualizer();
+            updateImage3D();
+            displayImage3D();
         }
         
-        else if(keyPressed==120 || keyPressed==88){
-            cout << "sgbm.SADWindowSize = " << sgbm.SADWindowSize << ";" << endl;
-            cout << "sgbm.numberOfDisparities = " << sgbm.numberOfDisparities << ";" << endl;
-            cout << "sgbm.preFilterCap = " << sgbm.preFilterCap << ";" << endl;
-            cout << "sgbm.minDisparity = " << sgbm.minDisparity << ";" << endl;
-            cout << "sgbm.uniquenessRatio = " << sgbm.uniquenessRatio << ";" << endl;
-            cout << "sgbm.speckleWindowSize = " << sgbm.speckleWindowSize << ";" << endl;
-            cout << "sgbm.speckleRange = " << sgbm.speckleRange << ";" << endl;
-            cout << "sgbm.disp12MaxDiff = " << sgbm.disp12MaxDiff << ";" << endl;
-            cout << "sgbm.fullDP = " << (sgbm.fullDP==0?"false":"true") << ";" << endl;
-            cout << "sgbm.P1 = " << sgbm.P1 << ";" << endl;
-            cout << "sgbm.P2 = " << sgbm.P2 << ";" << endl;
+        // Save the images if required (press 's' or 'S')
+        else if(keyPressed== 83 || keyPressed==115) {
+            saveImage(disparityMapNormalised, "DepthMap_" + to_string(frameCount), outputDirectory);
+            frameCount++;
         }
-		// Save the images if required (press 's' or 'S')
-		else if( (keyPressed== 83 || keyPressed==115) && !outputFolder.empty()) {
-			char fileName[256];
-			sprintf(fileName, "%sdepthMap_%d.png", outputFolder.c_str(), frameID);
-
-			try {
-				imwrite(fileName, dispNorm);
-			}
-			catch (runtime_error& ex) {
-				fprintf(stderr, "Exception converting image to PNG format: %s \n", ex.what());
-			}
-			frameID++;
-		}
-
-		// Exit when esc key is pressed
+        
+        // Save disparity parameters (press 'x' or 'X')
+        else if(keyPressed==120 || keyPressed==88){
+            saveDisparityParameters();
+        }
+        
+        // Exit when esc key is pressed
         if( keyPressed== 27) break;
-	}
+    }
     destroyAllWindows();
 }
 
-// ////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-// |||||||||||||||||||||||||||||||||||||||calibrate||||||||||||||||||||||||||||||||||||||||||||||
-// \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\//////////////////////////////////////////////////
+//————————————————————————————————————————————————————————————————————
+//  calibrate
+//————————————————————————————————————————————————————————————————————
 
 void StereoPair::calibrate(String outputFile, String outputFolder){
 
@@ -738,13 +715,20 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
                   CALIB_ZERO_DISPARITY, 1, imageSize, &validRoi[0], &validRoi[1]);
 
     //////////Save calibration parameters//////////////////
+    string calibration_parametersFile = outputDirectory + calibration_ParametersFileName;
     FileStorage fs(calibration_parametersFile.c_str(), CV_STORAGE_WRITE);
     if( fs.isOpened() )
     {
     	cout << "Saving parameters" << endl;
-    	fs << "Size" << imageSize << "K1" << cameraMatrix[0] << "distCoeffs1" << distCoeffs[0] <<
-    			"K2" << cameraMatrix[1] << "distCoeffs2" << distCoeffs[1] <<
-    			"R" << R << "T" << T << "Q" << Q;
+    	fs <<
+        "Size"          << imageSize <<
+        "K1"            << cameraMatrix[0] <<
+        "distCoeffs1"   << distCoeffs[0] <<
+    	"K2"            << cameraMatrix[1] <<
+        "distCoeffs2"   << distCoeffs[1] <<
+        "R"             << R <<
+        "T"             << T <<
+        "Q"             << Q;
     	fs.release();
     	cout << "Parameters saved" << endl;
     }
@@ -753,4 +737,83 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
    //////////Once parameters are saved, reinitialize rectification from them////////////////
     this->setupRectification();
     this->displayImages(true /*rectified*/, true /*drawLines*/);
+}
+
+
+//————————————————————————————————————————————————————————————————————
+//  setupDisparityParameters
+//————————————————————————————————————————————————————————————————————
+
+void StereoPair::setupDisparityParameters() {
+    string sgbmParametersFile = outputDirectory + sgbm_ParametersFileName;
+    FileStorage fs(sgbmParametersFile.c_str(), FileStorage::READ);
+    if (fs.isOpened()) {
+        fs["SADWindowSize"]         >> semiGlobalBlobMatch.SADWindowSize;
+        fs["numberOfDisparities"]   >> semiGlobalBlobMatch.numberOfDisparities;
+        fs["preFilterCap"]          >> semiGlobalBlobMatch.preFilterCap;
+        fs["minDisparity"]          >> semiGlobalBlobMatch.minDisparity;
+        fs["uniquenessRatio"]       >> semiGlobalBlobMatch.uniquenessRatio;
+        fs["speckleWindowSize"]     >> semiGlobalBlobMatch.speckleWindowSize;
+        fs["speckleRange"]          >> semiGlobalBlobMatch.speckleRange;
+        fs["disp12MaxDiff"]         >> semiGlobalBlobMatch.disp12MaxDiff;
+        fs["fullDP"]                >> semiGlobalBlobMatch.fullDP;
+        fs["P1"]                    >> semiGlobalBlobMatch.P1;
+        fs["P2"]                    >> semiGlobalBlobMatch.P2;
+    }
+    else {
+        cout << "READ ERROR: could not read from " << sgbmParametersFile << endl;
+        cout << "using default parameters" << endl;
+        semiGlobalBlobMatch.SADWindowSize = 5;
+        semiGlobalBlobMatch.numberOfDisparities = 192;
+        semiGlobalBlobMatch.preFilterCap = 9;
+        semiGlobalBlobMatch.minDisparity = 5;
+        semiGlobalBlobMatch.uniquenessRatio = 18;
+        semiGlobalBlobMatch.speckleWindowSize = 83;
+        semiGlobalBlobMatch.speckleRange = 95;
+        semiGlobalBlobMatch.disp12MaxDiff = 25;
+        semiGlobalBlobMatch.fullDP = true;
+        semiGlobalBlobMatch.P1 = 240;
+        semiGlobalBlobMatch.P2 = 2339;
+    }
+}
+
+
+//————————————————————————————————————————————————————————————————————
+//  saveDisparityParameters
+//————————————————————————————————————————————————————————————————————
+
+void StereoPair::saveDisparityParameters() {
+    string sgbmParametersFile = outputDirectory + sgbm_ParametersFileName;
+    FileStorage fs(sgbmParametersFile.c_str(), FileStorage::WRITE);
+    if (fs.isOpened()) {
+        fs <<   "SADWindowSize" << semiGlobalBlobMatch.SADWindowSize <<
+        "numberOfDisparities"   << semiGlobalBlobMatch.numberOfDisparities <<
+        "preFilterCap"          << semiGlobalBlobMatch.preFilterCap <<
+        "minDisparity"          << semiGlobalBlobMatch.minDisparity <<
+        "uniquenessRatio"       << semiGlobalBlobMatch.uniquenessRatio <<
+        "speckleWindowSize"     << semiGlobalBlobMatch.speckleWindowSize <<
+        "speckleRange"          << semiGlobalBlobMatch.speckleRange <<
+        "disp12MaxDiff"         << semiGlobalBlobMatch.disp12MaxDiff <<
+        "fullDP"                << semiGlobalBlobMatch.fullDP <<
+        "P1"                    << semiGlobalBlobMatch.P1 <<
+        "P2"                    << semiGlobalBlobMatch.P2;
+        
+        cout << "\n***** semiGlobalBlobMatch parameters saved *****" << endl;
+        cout << "  semiGlobalBlobMatch.SADWindowSize       = "<< semiGlobalBlobMatch.SADWindowSize        << ";" << endl;
+        cout << "  semiGlobalBlobMatch.numberOfDisparities = "<< semiGlobalBlobMatch.numberOfDisparities  << ";" << endl;
+        cout << "  semiGlobalBlobMatch.preFilterCap        = "<< semiGlobalBlobMatch.preFilterCap         << ";" << endl;
+        cout << "  semiGlobalBlobMatch.minDisparity        = "<< semiGlobalBlobMatch.minDisparity         << ";" << endl;
+        cout << "  semiGlobalBlobMatch.uniquenessRatio     = "<< semiGlobalBlobMatch.uniquenessRatio      << ";" << endl;
+        cout << "  semiGlobalBlobMatch.speckleWindowSize   = "<< semiGlobalBlobMatch.speckleWindowSize    << ";" << endl;
+        cout << "  semiGlobalBlobMatch.speckleRange        = "<< semiGlobalBlobMatch.speckleRange         << ";" << endl;
+        cout << "  semiGlobalBlobMatch.disp12MaxDiff       = "<< semiGlobalBlobMatch.disp12MaxDiff        << ";" << endl;
+        cout << "  semiGlobalBlobMatch.fullDP              = "<< (semiGlobalBlobMatch.fullDP==0?"false":"true") << ";" << endl;
+        cout << "  semiGlobalBlobMatch.P1                  = "<< semiGlobalBlobMatch.P1                   << ";" << endl;
+        cout << "  semiGlobalBlobMatch.P2                  = "<< semiGlobalBlobMatch.P2                   << ";" << endl << endl;
+    }
+    else cout << "SAVE ERROR: could not write to " << sgbmParametersFile << endl;
+}
+
+void StereoPair::flipUpsideDown() {
+    flipped = !flipped;
 }

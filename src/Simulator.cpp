@@ -137,7 +137,7 @@ void Simulator::drawGrid(){
         line(display, Point(halfDisplay, display.rows), Point(display.cols, display.rows-h), COLOR_SEPARATOR_LINE, 1.5);
         
         ////////Draw a car////////////
-        Mat carImg = imread("/Users/alejandrodanielnoel1/Documents/XCode projects/Autonomous_Car/src/car_top.png");
+        Mat carImg = imread("/Users/alejandrodanielnoel1/Documents/0 Projects/1 BRAIN/CV/SDC Code/src/car_top.png", CV_LOAD_IMAGE_COLOR);
         resize(carImg, carImg, Size(60, 120));
         Rect roi(0, 0, carImg.cols,carImg.rows/2-5);
         Mat image_roi = carImg(roi);
@@ -203,7 +203,7 @@ void Simulator::avoidanceSimulator(bool autoEraseColumns = false){
             float pathRadius;
             pathRadius = planer.findAvoidancePath(obstacleScenario, 10000, display, squarePixelSize);
             ////////Draw a car////////////
-            Mat carImg = imread("/Users/alejandrodanielnoel1/Documents/XCode projects/Autonomous_Car/src/car_top.png");
+            Mat carImg = imread("/Users/alejandrodanielnoel1/Documents/0 Projects/1 BRAIN/CV/SDC Code/src/car_top.png");
             resize(carImg, carImg, Size(60, 120));
             Rect roi(0, 0, carImg.cols,carImg.rows/2-5);
             Mat image_roi = carImg(roi);
@@ -306,9 +306,11 @@ void Simulator::navigationSimulator(){
     }
 }
 
+
 /*=========================================================================================*\
 |   Simulator auto-choose                                                                   |
 \*=========================================================================================*/
+
 void Simulator::runSimulation(){
     if (simulatorType == TYPE_AVOIDANCE)
         avoidanceSimulator();

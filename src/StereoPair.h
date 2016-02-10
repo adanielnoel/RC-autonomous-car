@@ -29,6 +29,7 @@
 #include <DUOLib.h>
 //#include "cv.h"
 
+#define DUO3D
 
 using namespace cv;
 using namespace std;
@@ -56,59 +57,60 @@ private:
     bool    flipped = false;
     bool    swapped = false;
     bool    canRectify = false;
-    
+    int     imageWidth;
+    int     imageHeight;
     
 	Rectification	rectification;			// Rectification maps
-	StereoSGBM		sgbm;			// Disparity computation method
-	Mat				dsp;			// Disparity map (not normalized)
-	Mat				img3D;			// Depth map
-	Mat				Q;              // camera matrix from stereoRectify(..., Q, ...);
-    string          outputDirectory;
+	StereoSGBM		semiGlobalBlobMatch;	// Disparity computation method
+	Mat				Q;                      // camera matrix from stereoRectify(..., Q, ...);
+    
+    string          calibration_ParametersFileName = "stereo_calibration_parameters.xml";
+    string          sgbm_ParametersFileName = "semiglobal_block_match_parameters.xml";
     
     boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer3D;
     
 public:
-    string          calibration_parametersFile = "/Users/alejandrodanielnoel1/Documents/XCode projects/Autonomous_Car/data/stereo_calibration_parameters.xml";
+    ///////Public objects and variables/////////
+    string          outputDirectory = "/Users/alejandrodanielnoel1/Documents/0 Projects/1 BRAIN/CV/SDC Code/data/";
+    // Calibration parameters
     Size            calibration_boardSize = Size(9, 6);
     float           calibration_squareSize = 0.022;
     int             calibration_numberOfImages = 16;
-    ///////Public class constants/////////
-    bool            cameraIsUpsideDown;
+    
     Mat				leftImage;			// Rectified left image
     Mat				rightImage;			// Rectified right image
+	Mat				disparityMap;       // Disparity map (not normalized)
+	Mat				image3D;            // Depth map
     
-	//Constructors and destructors
-	StereoPair();			//TODO: default constructor does nothing!
+	// Constructors and destructors
+    StereoPair();
+	StereoPair(int width, int height, int fps);
 
-    // New stuff
+    // Updating and displaying
     void updateImages(bool rectify);
-    void displayImages(bool rectified, bool drawLines);
+    void updateDisparityImg(float scaleFactor = 1.0);
+    void updateImage3D();
     
-	//Initialization methods
-	void setupRectification(String calibrationFile = "");
-	void setupDisparity();
+    void displayImages(bool rectified, bool drawLines);
+    void displayDisparityMap();
+    void displayImage3D();
+    
+	// Initialization methods
+	void setupRectification();
+    void setupDisparityParameters();
+    void saveDisparityParameters();
 
-	//Functions
-//	bool updateRectifiedPair();
-    void updateDisparityImg(float scaleFactor);
-	void updateImg3D();
-    void resizeImages(float scaleFactor);
-	Mat glueTwoImagesHorizontal(Mat Img1, Mat Img2);
-	Mat glueTwoImagesVertical(Mat Img1, Mat Img2);
-
-	//Utilities
-	void saveUncalibratedStereoImages(string outputFolder);		//on 's' key press saves stereo images. Useful to get chess board images.
-	void saveCalibratedStereoImages(string outputFolder);		//on 's' key press saves rectified images.
-	void displayDisparityMap(bool showImages = false, string outputFolder = "", bool useRectifiedImages = true);
+	// Utilities
 	void calibrate(String outputFile, string outputFolder = "");	//Calibrate camera intrinsics and extrinsics
-    Point3f getPixel3Dcoords(int pixX, int pixY, double disp);
-    Mat reprojectTo3D(Mat disp);
-    void run3DVisualizer();
+    Point3f getPixel3Dcoords(int pixX, int pixY, double disp);      // TODO: implement
+    void resizeImages(float scaleFactor);
+    Mat glueTwoImagesHorizontal(Mat Img1, Mat Img2);
+    Mat glueTwoImagesVertical(Mat Img1, Mat Img2);
+    bool saveImage(Mat image, string imageName, string outputDirectory);
+    void flipUpsideDown();
 
-	//Get methods
-	Mat getDisparityImg();
-	Mat getImg3D();
-	Mat getDisparityImgNormalised();
+	// Get methods
+	Mat getDisparityImageNormalised();
 };
 
 
