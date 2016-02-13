@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<opencv_storage>
+<SADWindowSize>5</SADWindowSize>
+<numberOfDisparities>192</numberOfDisparities>
+<preFilterCap>9</preFilterCap>
+<minDisparity>5</minDisparity>
+<uniquenessRatio>18</uniquenessRatio>
+<speckleWindowSize>83</speckleWindowSize>
+<speckleRange>95</speckleRange>
+<disp12MaxDiff>25</disp12MaxDiff>
+<fullDP>1</fullDP>
+<P1>240</P1>
+<P2>2339</P2>
+</opencv_storage>

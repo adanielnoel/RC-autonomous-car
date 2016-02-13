@@ -8,10 +8,8 @@
 
 
 #include "StereoPair.h"
+#include "CommonMethods.h"
 #include "DUO3D_camera.h"
-#include <DUOLib.h>
-#include "commonMethods.h"
-
 
 //————————————————————————————————————————————————————————————————————
 // saveImage
@@ -73,7 +71,7 @@ Mat StereoPair::glueTwoImagesVertical(Mat Img1, Mat Img2){
 //————————————————————————————————————————————————————————————————————
 
 StereoPair::StereoPair(){
-    StereoPair(640, 480, 30);
+    StereoPair(640, 480, 30, "");
 }
 
 
@@ -81,9 +79,23 @@ StereoPair::StereoPair(){
 // Initializer
 //————————————————————————————————————————————————————————————————————
 
-StereoPair::StereoPair(int width, int height, int fps){
+StereoPair::StereoPair(int width, int height, int fps, string _dataDirectory){
+    dataDirectory = _dataDirectory;
     imageWidth = width;
     imageHeight = height;
+    
+    // Setting some defaults
+    useColorImages = false;
+    flippedUpsideDown = false;
+    swapped = false;
+    canRectify = false;
+    rectify = false;
+    calibration_ParametersFileName = "stereo_calibration_parameters.xml";
+    sgbm_ParametersFileName = "semiglobal_block_match_parameters.xml";
+    calibration_boardSize = Size(9, 6);
+    calibration_squareSize = 0.022;
+    calibration_numberOfImages = 16;
+    
     
 # ifdef DUO3D
     if(!OpenDUOCamera(width, height, fps)){
@@ -91,8 +103,10 @@ StereoPair::StereoPair(int width, int height, int fps){
         exit(EXIT_FAILURE);
     }
     // Set exposure and LED brightness
-    SetExposure(100);
-    SetLed(0);
+    exposure = 20;
+    ledIntensity = 0;
+    SetExposure(exposure);
+    SetLed(ledIntensity);
 # else
     //Open and configure cameras
     webcam.left = VideoCapture();
@@ -120,12 +134,13 @@ void StereoPair::setupRectification() {
     Rect validRoi[2];
     
     // Open calibration file
-    string calibration_parametersFile = outputDirectory + calibration_ParametersFileName;
+    string calibration_parametersFile = dataDirectory + calibration_ParametersFileName;
     FileStorage fs(calibration_parametersFile, FileStorage::READ);
     
     // Read calibration file
     if(!fs.isOpened()){
-        cout << "Calibration file was not found" << endl;
+        cout << "READ ERROR: Calibration file was not found" << endl;
+        cout << "The provided file path is: " + dataDirectory + calibration_parametersFile << endl;
         cout << "Do you want to calibrate now? (y/n): " << endl;
         return;
     }
@@ -157,11 +172,15 @@ void StereoPair::setupRectification() {
 }
 
 
+void StereoPair::rectifyImages(bool doRectify){
+    rectify = doRectify;
+}
+
 //————————————————————————————————————————————————————————————————————
 //  updateImages
 //————————————————————————————————————————————————————————————————————
 
-void StereoPair::updateImages(bool rectify) {
+void StereoPair::updateImages() {
     Mat newFrameL, newFrameR;
     
 # ifdef DUO3D
@@ -188,7 +207,7 @@ void StereoPair::updateImages(bool rectify) {
         cvtColor(newFrameR,newFrameR,CV_RGB2GRAY);
     }
 # endif
-    if (flipped) {
+    if (flippedUpsideDown) {
         flip(newFrameL, newFrameL, 0);  // Flip vertically
         flip(newFrameR, newFrameR, 0);  // Flip vertically
         flip(newFrameL, newFrameL, 1);  // Flip horizontally
@@ -209,16 +228,16 @@ void StereoPair::updateImages(bool rectify) {
 //  displayImages
 //————————————————————————————————————————————————————————————————————
 
-void StereoPair::displayImages(bool rectified, bool drawLines) {
-    if(!canRectify) rectified = false;
+void StereoPair::displayImages(bool drawLines) {
     // Create visualization windows
 //    if (rectified) namedWindow("Rectified stereo images", CV_WINDOW_NORMAL);
 //    else namedWindow("Uncalibrated stereo images", CV_WINDOW_NORMAL);
     // Reset frame counter
     int frameCount = 0;
+    autoTuneExposure();
     
     for (;;) {
-        updateImages(rectified);
+        updateImages();
         Mat LR = glueTwoImagesHorizontal(leftImage, rightImage);
         
         if (drawLines) {
@@ -230,30 +249,35 @@ void StereoPair::displayImages(bool rectified, bool drawLines) {
             }
             
         }
-        if (rectified) imshow("Rectified stereo images", LR);
+        if (rectify) imshow("Rectified stereo images", LR);
         else imshow("Uncalibrated stereo images", LR);
         
         int keyPressed = waitKey(10);
         
         // Save the images if 's' or 'S' key has been pressed
         if( keyPressed==83 || keyPressed==115) {
-            saveImage(leftImage, (rectified? "Rectified_L_" + to_string(frameCount) : "Uncalibrated_L_" + to_string(frameCount)), outputDirectory);
-            saveImage(rightImage, (rectified? "Rectified_R_" + to_string(frameCount) : "Uncalibrated_R_" + to_string(frameCount)), outputDirectory);
-            if (drawLines) saveImage(LR, "StereoPair" + to_string(frameCount), outputDirectory);
+            saveImage(leftImage, (rectify? "Rectified_L_" + to_string(frameCount) : "Uncalibrated_L_" + to_string(frameCount)), dataDirectory);
+            saveImage(rightImage, (rectify? "Rectified_R_" + to_string(frameCount) : "Uncalibrated_R_" + to_string(frameCount)), dataDirectory);
+            if (drawLines) saveImage(LR, "StereoPair" + to_string(frameCount), dataDirectory);
             frameCount++;
         }
         
+#ifdef DUO3D
+        // Run exposure autotune if 'a' or 'A' is pressed
+        if(keyPressed==65 || keyPressed==97) {
+            autoTuneExposure();
+        }
+#endif
+        
         // Exit if 'esc' key is pressed
         if( keyPressed==27) {
-            cout << "ESC key is pressed by user" << endl;
-            break;
+            // Close the windows
+            if (rectify) destroyWindow("Rectified stereo images");
+            else destroyWindow("Uncalibrated stereo images");
+            waitKey(1);
+            return;
         }
-        
     }
-    
-    // Close the windows
-    if (rectified) destroyWindow("Rectified stereo images");
-    else destroyWindow("Uncalibrated stereo images");
 }
 
 //————————————————————————————————————————————————————————————————————
@@ -285,16 +309,7 @@ void StereoPair::updateDisparityImg(float scaleFactor){
     if(scaleFactor != 1.0){
         Mat scaledLeftImage, scaledRightImage;
         int interpolationMethod = INTER_AREA;
-        /*
-         * RESIZE INTERPOLATION METHODS
-         *
-         * INTER_NEAREST - a nearest-neighbor interpolation
-         * INTER_LINEAR - a bilinear interpolation (used by default)
-         * INTER_AREA - resampling using pixel area relation. It may be a preferred method for image decimation, as it gives moire’-free results. But when the image is zoomed, it is similar to the INTER_NEAREST method.
-         * INTER_CUBIC - a bicubic interpolation over 4x4 pixel neighborhood
-         * INTER_LANCZOS4 - a Lanczos interpolation over 8x8 pixel neighborhood
-         *
-         */
+
         resize(leftImage, scaledLeftImage, Size(), scaleFactor, scaleFactor, interpolationMethod);
         resize(rightImage, scaledRightImage, Size(), scaleFactor, scaleFactor, interpolationMethod);
         semiGlobalBlobMatch(scaledLeftImage, scaledRightImage, disparityMap);
@@ -414,8 +429,10 @@ void StereoPair::updateImage3D(){
     //cout << "minZ: " << minZ << "   maxZ: " << maxZ << endl;
      */
     
-    image3D = Mat(disparityMap.size(), CV_32FC3);
-    reprojectImageTo3D(disparityMap, image3D, Q);
+    Mat tmpDisp;
+    flip(disparityMap, tmpDisp, -1);  // Flip vertically because reprojectImageTo3D inverts image
+    image3D = Mat(tmpDisp.size(), CV_32FC3);
+    reprojectImageTo3D(tmpDisp, image3D, Q);
 }
 
 
@@ -455,7 +472,7 @@ void StereoPair::displayDisparityMap() {
     cout << "Press \n's' to save disparity map\n'd' to launch the 3D visualizer\n'x' to save current SGBM parameters" << endl;
     
     while(1){
-        updateImages(true /*rectified*/);
+        updateImages();
         updateDisparityImg();
         Mat disparityMapNormalised = getDisparityImageNormalised();
         
@@ -482,7 +499,7 @@ void StereoPair::displayDisparityMap() {
         
         // Save the images if required (press 's' or 'S')
         else if(keyPressed== 83 || keyPressed==115) {
-            saveImage(disparityMapNormalised, "DepthMap_" + to_string(frameCount), outputDirectory);
+            saveImage(disparityMapNormalised, "DepthMap_" + to_string(frameCount), dataDirectory);
             frameCount++;
         }
         
@@ -494,14 +511,16 @@ void StereoPair::displayDisparityMap() {
         // Exit when esc key is pressed
         if( keyPressed== 27) break;
     }
-    destroyAllWindows();
+    destroyWindow("Disparity");
+    destroyWindow("Controls");
+    waitKey(1);
 }
 
 //————————————————————————————————————————————————————————————————————
 //  calibrate
 //————————————————————————————————————————————————————————————————————
 
-void StereoPair::calibrate(String outputFile, String outputFolder){
+void StereoPair::calibrate(){
 
 	///////////INITIAL PARAMETERS//////////////
 	Size boardSize = Size(9, 6);	//Inner board corners
@@ -535,7 +554,7 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
     for( i = j = 0; j < nimages; i++ )
     {
     	while(1){
-            this->updateImages(false /*rectify*/);
+            this->updateImages();
     		Mat niml = leftImage, nimr = rightImage;
             Mat cimg1, cimg2;	//Corner images
             bool found = false;
@@ -622,10 +641,10 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
     		{
     			cout << "Saving image pairs..." << endl;
 
-    			if(!outputFolder.empty()){
+    			if(!dataDirectory.empty()){
     				// Create the file names for saving the images
     				char fileName[256];
-    				sprintf(fileName, "%sCalib_%d.png", outputFolder.c_str(), frameID);
+    				sprintf(fileName, "%sCalib_%d.png", dataDirectory.c_str(), frameID);
 
     				// Write the images
     				try {
@@ -715,7 +734,7 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
                   CALIB_ZERO_DISPARITY, 1, imageSize, &validRoi[0], &validRoi[1]);
 
     //////////Save calibration parameters//////////////////
-    string calibration_parametersFile = outputDirectory + calibration_ParametersFileName;
+    string calibration_parametersFile = dataDirectory + calibration_ParametersFileName;
     FileStorage fs(calibration_parametersFile.c_str(), CV_STORAGE_WRITE);
     if( fs.isOpened() )
     {
@@ -736,7 +755,7 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
 
    //////////Once parameters are saved, reinitialize rectification from them////////////////
     this->setupRectification();
-    this->displayImages(true /*rectified*/, true /*drawLines*/);
+    this->displayImages(true /*drawLines*/);
 }
 
 
@@ -745,7 +764,7 @@ void StereoPair::calibrate(String outputFile, String outputFolder){
 //————————————————————————————————————————————————————————————————————
 
 void StereoPair::setupDisparityParameters() {
-    string sgbmParametersFile = outputDirectory + sgbm_ParametersFileName;
+    string sgbmParametersFile = dataDirectory + sgbm_ParametersFileName;
     FileStorage fs(sgbmParametersFile.c_str(), FileStorage::READ);
     if (fs.isOpened()) {
         fs["SADWindowSize"]         >> semiGlobalBlobMatch.SADWindowSize;
@@ -762,6 +781,7 @@ void StereoPair::setupDisparityParameters() {
     }
     else {
         cout << "READ ERROR: could not read from " << sgbmParametersFile << endl;
+        cout << "The provided file path is: " + dataDirectory + sgbm_ParametersFileName << endl;
         cout << "using default parameters" << endl;
         semiGlobalBlobMatch.SADWindowSize = 5;
         semiGlobalBlobMatch.numberOfDisparities = 192;
@@ -783,7 +803,7 @@ void StereoPair::setupDisparityParameters() {
 //————————————————————————————————————————————————————————————————————
 
 void StereoPair::saveDisparityParameters() {
-    string sgbmParametersFile = outputDirectory + sgbm_ParametersFileName;
+    string sgbmParametersFile = dataDirectory + sgbm_ParametersFileName;
     FileStorage fs(sgbmParametersFile.c_str(), FileStorage::WRITE);
     if (fs.isOpened()) {
         fs <<   "SADWindowSize" << semiGlobalBlobMatch.SADWindowSize <<
@@ -814,6 +834,64 @@ void StereoPair::saveDisparityParameters() {
     else cout << "SAVE ERROR: could not write to " << sgbmParametersFile << endl;
 }
 
+//————————————————————————————————————————————————————————————————————
+//  flipUpsideDown
+//————————————————————————————————————————————————————————————————————
 void StereoPair::flipUpsideDown() {
-    flipped = !flipped;
+    flippedUpsideDown = !flippedUpsideDown;
 }
+
+
+#ifdef DUO3D
+//————————————————————————————————————————————————————————————————————
+//  autoTuneExposure
+//————————————————————————————————————————————————————————————————————
+
+void StereoPair::autoTuneExposure(){    // TODO: auto adjust infrared led intensity
+    const int whiteThreshold = 254;
+    const int maxNumberOfWhitePixels = 50000;
+    const int minNumberOfWhitePixels = 40000;
+    const int numberOfIterations = 50;
+    
+    updateImages();
+    
+    for(int i=0; i<numberOfIterations; i++){
+        int whitePixelsCount = 0;
+        for( int i = 0; i < leftImage.rows; ++i){
+            for( int j = 0; j < leftImage.cols; ++j ){
+                Scalar intensity = leftImage.at<uchar>(Point(j, i));
+                if(intensity.val[0] > whiteThreshold){
+                    whitePixelsCount++;
+                }
+            }
+        }
+        for( int i = 0; i < rightImage.rows; ++i){
+            for( int j = 0; j < rightImage.cols; ++j ){
+                Scalar intensity = rightImage.at<uchar>(Point(j, i));
+                if(intensity.val[0] > whiteThreshold){
+                    whitePixelsCount++;
+                }
+            }
+        }
+        
+        if (whitePixelsCount > maxNumberOfWhitePixels)
+            exposure -= 2;
+        else if (whitePixelsCount < minNumberOfWhitePixels) exposure += 2;
+    
+        SetExposure(exposure);
+        updateImages();
+        Mat LR = glueTwoImagesHorizontal(leftImage, rightImage);
+        cvtColor(LR, LR, COLOR_GRAY2BGR);   // Convert to BGR (RGB) color space for drawing a coloured rectangle.
+        rectangle(LR, Point(0, 0), Point(LR.cols*i/numberOfIterations, 10), CV_RGB(255, 123, 47), CV_FILLED, 8);
+        putText(LR, "Exposure: " + to_string(exposure), Point(50,40), FONT_HERSHEY_SIMPLEX, 0.7, CV_RGB(255, 123, 47), 2);
+        putText(LR, "LED     : " + to_string(ledIntensity), Point(50,70), FONT_HERSHEY_SIMPLEX, 0.7, CV_RGB(255, 123, 47), 2);
+        imshow("autotune exposure", LR);
+        waitKey(20);
+    }
+    destroyWindow("autotune exposure");
+    waitKey(1);
+}
+#endif
+
+
+

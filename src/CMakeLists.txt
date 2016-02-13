@@ -1,4 +1,5 @@
-cmake_minimum_required (VERSION 2.8 FATAL_ERROR)
+cmake_minimum_required (VERSION 2.8.5 FATAL_ERROR)
+add_compile_options(-std=c++0x)
 set(ProjectName Autonomous_RC_Car)
 project(${ProjectName})
 
@@ -44,8 +45,6 @@ elseif(UNIX)
   # set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin )
 endif()
 
-# find_package(VTK REQUIRED)
-# include(${VTK_USE_FILE})
 
  find_package( PCL 1.2 REQUIRED )
 
@@ -55,10 +54,24 @@ endif()
 
 find_package(OpenCV REQUIRED)
 
+find_package(Boost COMPONENTS filesystem REQUIRED)
+include_directories(${Boost_INCLUDE_DIR})
+link_directories(${Boost_LIBRARY_DIRS})
+
 file(GLOB Project_SRC *.cpp *.h)
-add_executable(${ProjectName} ${Project_SRC}) 
+add_executable(${ProjectName} ${Project_SRC})
+
 if(WIN32)
-	target_link_libraries(${ProjectName} DUOlib ${OpenCV_LIBRARIES} ${VTK_LIBRARIES} ${PCL_LIBRARIES})
+	target_link_libraries(${ProjectName} DUOlib ${OpenCV_LIBRARIES} ${PCL_LIBRARIES} ${Boost_LIBRARIES})
 elseif(UNIX OR APPLE)
-	target_link_libraries(${ProjectName} duo ${OpenCV_LIBRARIES} ${VTK_LIBRARIES} ${PCL_LIBRARIES})
+	target_link_libraries(${ProjectName} duo ${OpenCV_LIBRARIES} ${PCL_LIBRARIES} ${Boost_LIBRARIES})
+endif()
+
+message("Installing project files")
+if(UNIX)
+    get_filename_component(PARENT_DIR ${CMAKE_CURRENT_BINARY_DIR} DIRECTORY)
+    message(${PARENT_DIR}/AppData)
+    file(MAKE_DIRECTORY var/lib/autonomousCar)
+    install(DIRECTORY ${PARENT_DIR}/AppData/ DESTINATION var/lib/autonomousCar)
+elseif(WIN32)
 endif()

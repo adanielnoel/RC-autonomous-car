@@ -8,11 +8,9 @@
 #ifndef OBSTACLESCENARIO_H_
 #define OBSTACLESCENARIO_H_
 
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
-#include "opencv2/core/core.hpp"
-#include "opencv2/contrib/contrib.hpp"
+
 #include "opencv2/opencv.hpp"
+#include <stdio.h>
 
 using namespace cv;
 using namespace std;
@@ -24,6 +22,7 @@ public:
 	float depth;			//In meters
 	float squareSize;	//In meters
 	vector< vector<int> > scenario; //A value of 0 means free, 1 means occupied
+    vector<Point2f> points;
     
     ObstacleScenario();
     ObstacleScenario(float _width, float _depth, float _squareSize);

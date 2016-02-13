@@ -31,6 +31,7 @@ const int Simulator::TYPE_AVOIDANCE = 0;
 const int Simulator::TYPE_NAVIGATION = 1;
 const int Simulator::TYPE_NONE = 2;
 
+
 /*=========================================================================================*\
 |   Initialization                                                                          |
 \*=========================================================================================*/
@@ -40,7 +41,8 @@ Simulator::Simulator(){
     simulatorType = TYPE_NONE;
 }
 
-Simulator::Simulator(float width, float height, float squareSize, int type, int windowWidth) {
+Simulator::Simulator(float width, float height, float squareSize, int type, int windowWidth, string _dataDirectory) {
+    dataDirectory = _dataDirectory;
     XSquares = ceil(width/squareSize);
     YSquares = ceil(height/squareSize);
     squareRealSize = squareSize;
@@ -133,17 +135,19 @@ void Simulator::drawGrid(){
         int halfDisplay = ceil(display.cols/2);
         float alpha = ((180-fov)*M_PI) / 360;
         int h = ceil(tan(alpha)*halfDisplay);
-        line(display, Point(halfDisplay, display.rows), Point(0, display.rows-h), COLOR_SEPARATOR_LINE, 1.5);
-        line(display, Point(halfDisplay, display.rows), Point(display.cols, display.rows-h), COLOR_SEPARATOR_LINE, 1.5);
+        line(display, Point(halfDisplay, display.rows), Point(0, display.rows-h), COLOR_SEPARATOR_LINE, 1);
+        line(display, Point(halfDisplay, display.rows), Point(display.cols, display.rows-h), COLOR_SEPARATOR_LINE, 1);
         
         ////////Draw a car////////////
-        Mat carImg = imread("/Users/alejandrodanielnoel1/Documents/0 Projects/1 BRAIN/CV/SDC Code/src/car_top.png", CV_LOAD_IMAGE_COLOR);
-        resize(carImg, carImg, Size(60, 120));
-        Rect roi(0, 0, carImg.cols,carImg.rows/2-5);
-        Mat image_roi = carImg(roi);
-        image_roi.copyTo(carImg);
-        Mat displayROI(display, Rect(display.cols/2-carImg.cols/2, display.rows-carImg.rows, carImg.cols, carImg.rows));
-        carImg.copyTo(displayROI);
+        if (!dataDirectory.empty()) {
+            Mat carImg = imread(dataDirectory + "car_top.png", CV_LOAD_IMAGE_COLOR);
+            resize(carImg, carImg, Size(60, 120));
+            Rect roi(0, 0, carImg.cols,carImg.rows/2-5);
+            Mat image_roi = carImg(roi);
+            image_roi.copyTo(carImg);
+            Mat displayROI(display, Rect(display.cols/2-carImg.cols/2, display.rows-carImg.rows, carImg.cols, carImg.rows));
+            carImg.copyTo(displayROI);
+        }
         //////////////////////////////
     }
 }
@@ -203,13 +207,15 @@ void Simulator::avoidanceSimulator(bool autoEraseColumns = false){
             float pathRadius;
             pathRadius = planer.findAvoidancePath(obstacleScenario, 10000, display, squarePixelSize);
             ////////Draw a car////////////
-            Mat carImg = imread("/Users/alejandrodanielnoel1/Documents/0 Projects/1 BRAIN/CV/SDC Code/src/car_top.png");
-            resize(carImg, carImg, Size(60, 120));
-            Rect roi(0, 0, carImg.cols,carImg.rows/2-5);
-            Mat image_roi = carImg(roi);
-            image_roi.copyTo(carImg);
-            Mat displayROI(display, Rect(display.cols/2-carImg.cols/2, display.rows-carImg.rows, carImg.cols, carImg.rows));
-            carImg.copyTo(displayROI);
+            if (!dataDirectory.empty()) {
+                Mat carImg = imread(dataDirectory + "car_top.png", CV_LOAD_IMAGE_COLOR);
+                resize(carImg, carImg, Size(60, 120));
+                Rect roi(0, 0, carImg.cols,carImg.rows/2-5);
+                Mat image_roi = carImg(roi);
+                image_roi.copyTo(carImg);
+                Mat displayROI(display, Rect(display.cols/2-carImg.cols/2, display.rows-carImg.rows, carImg.cols, carImg.rows));
+                carImg.copyTo(displayROI);
+            }
             //////////////////////////////
             imshow("Avoidance simulator", display);
             int key = waitKey(0);
@@ -227,6 +233,8 @@ void Simulator::avoidanceSimulator(bool autoEraseColumns = false){
             break;
         }
     }
+    destroyWindow("Avoidance simulator");
+    waitKey(1);
 }
 
 /*=========================================================================================*\
@@ -304,6 +312,8 @@ void Simulator::navigationSimulator(){
             break;
         }
     }
+    destroyWindow("My Window");
+    waitKey(1);
 }
 
 
@@ -318,7 +328,7 @@ void Simulator::runSimulation(){
         navigationSimulator();
 }
 
-Mat Simulator::drawScenario(){
+Mat Simulator::drawScenario(vector<Point2f> points){
     // bool obstaclesPresent = false;
     //namedWindow("Simulator", 1);
     XSquares = scenario.scenario.size();
@@ -333,6 +343,12 @@ Mat Simulator::drawScenario(){
         }
     }
     drawGrid();
+    
+    if (!points.empty()) {
+        for (int i = 0; i < points.size(); i++) {
+            circle(display, Point(points.at(i).x*70.0, points.at(i).y*70.0), 1, CV_RGB(250, 20, 20));
+        }
+    }
     
     //Update the simulator display
     return display;

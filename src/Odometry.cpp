@@ -7,12 +7,17 @@
  */
 
 #include "Odometry.h"
+#include "StereoPair.h"
 
 Odometry::Odometry(){
 	camera = new StereoPair();
 }
 
 Odometry::Odometry(StereoPair& _camera){
+	camera = &_camera;
+    
+    // Some dafault values
+    maxEpipolarDifference = 15.0;
 
 	/*
 	 * Create the feature detector. Types:
@@ -53,8 +58,6 @@ Odometry::Odometry(StereoPair& _camera){
      * FlannBased
 	 */
 	matcher = DescriptorMatcher::create("BruteForce");
-
-	camera = &_camera;
 }
 
 Odometry::~Odometry(){
@@ -63,7 +66,7 @@ Odometry::~Odometry(){
 
 bool Odometry::updateOdometry(){
 	//TODO: explained at the end of the header file
-    camera->updateImages(true /*rectified*/);
+    camera->updateImages();
 	Mat leftImage = camera->leftImage;
 	Mat rightImage = camera->rightImage;
 	vector<vector<KeyPoint> > newKeyPoints;
@@ -216,12 +219,13 @@ vector<DMatch> Odometry::filteredMatch(vector<KeyPoint> kp1, vector<KeyPoint> kp
 }
 
 void Odometry::showLRMatches(){
-
 	Mat drawImg1;
-    Mat drawImg2; //For own drawing function
+  //  Mat drawImg2; //For own drawing function
+
+    namedWindow("Stereo matches", CV_WINDOW_NORMAL);
 
 	while(1){
-        camera->updateImages(true /*rectified*/);
+        camera->updateImages();
         Mat leftImage = camera->leftImage;
         Mat rightImage = camera->rightImage;
 		vector<KeyPoint> kpL;
@@ -258,9 +262,7 @@ void Odometry::showLRMatches(){
 	    }
 */
 
-		///////////////////////////////////////////////////////////////
-
-		namedWindow("Stereo matches", CV_WINDOW_NORMAL);
+		//////////////////////////////////////////////////////////////
 
 		imshow("Stereo matches", drawImg1);
 
@@ -269,4 +271,6 @@ void Odometry::showLRMatches(){
 		// Exit when esc key is pressed
         if( keyPressed== 27) break;
 	}
+    destroyWindow("Stereo matches");
+    waitKey(1);
 }

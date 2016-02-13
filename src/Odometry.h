@@ -8,17 +8,14 @@
 #ifndef ODOMETRY_H_
 #define ODOMETRY_H_
 
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/calib3d/calib3d.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
-#include "opencv2/core/core.hpp"
-#include "opencv2/contrib/contrib.hpp"
-#include "opencv2/features2d/features2d.hpp"
+
 #include "opencv2/opencv.hpp"
-#include <stdio.h>
+//#include <stdio.h>
 //#include "cv.h"
 #include <cmath>
-#include "StereoPair.h"
+//#include "StereoPair.h"
+
+class StereoPair;
 
 using namespace cv;
 using namespace std;
@@ -50,7 +47,7 @@ class Odometry {
 	StereoPair* 			camera;
 
 		//Parameters
-    float maxEpipolarDifference = 15.0; //Maximum y difference between key points when DO_EPIPOLAR_FILTER is activated.
+    float maxEpipolarDifference;                        //Maximum y difference between key points when DO_EPIPOLAR_FILTER is activated.
 	static const bool	DO_CROSS_CHECK = true;			//Enabling cross check ensures that each feature has one only match
 	static const bool	DO_EPIPOLAR_FILTER = true;		//Enables epipolar filter for matching stereo images
 
@@ -73,14 +70,5 @@ public:
 	void showLRMatches();
 };
 
-/*
- * When a new stereo frame is received, the left image is matched with the last left image to look for known points.
- * The camera pose is updated using the function solvePNPRANSAC passing the known key points positions on the new frame and their
- * global 3D position (calculated on the frame on which they where first seen).
- * Then the new key points (Those that didn't match) are matched with the right image.
- * The local 3D positions of the new key points are calculated using the disparity value and the "dispToDepthMat" matrix
- * (from the camera object).
- * The 3D positions are transformed to global coordinates using the updated camera pose.
- */
 
 #endif /* ODOMETRY_H_ */

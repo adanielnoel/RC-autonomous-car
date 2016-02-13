@@ -11,11 +11,6 @@
 #include <stdio.h>
 #include <cmath>
 
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/calib3d/calib3d.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
-#include "opencv2/core/core.hpp"
-#include "opencv2/contrib/contrib.hpp"
 #include "opencv2/opencv.hpp"
 //#include "cv.h"
 
@@ -34,6 +29,8 @@ class Simulator {
     static const Scalar COLOR_SHADOW;
 	static const Scalar COLOR_GRID;
     static const Scalar COLOR_SEPARATOR_LINE;
+    
+    string dataDirectory;
     
 	int XSquares;
 	int YSquares;	//in square count
@@ -57,11 +54,11 @@ public:
     Mat display;
     
     Simulator();
-	Simulator(float width, float height, float squareSize, int type, int windowWidth);	//Use real world measures
+	Simulator(float width, float height, float squareSize, int type, int windowWidth, string _dataDirectory = "");	//Use real world measures
 	void runSimulation();
     void avoidanceSimulator(bool autoEraseColumns);
     void navigationSimulator();
-    Mat drawScenario();
+    Mat drawScenario(vector<Point2f> points = {});
 	virtual ~Simulator();
 };
 

@@ -8,11 +8,6 @@
 #ifndef PATHPLANER_H_
 #define PATHPLANER_H_
 
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/calib3d/calib3d.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
-#include "opencv2/core/core.hpp"
-#include "opencv2/contrib/contrib.hpp"
 #include "opencv2/opencv.hpp"
 #include <stdio.h>
 #include <cmath>
@@ -30,8 +25,8 @@ struct Corner{
 };
 
 struct RadiusPair{
-    float radius1 = 0;
-    float radius2 = 0;
+    float radius1;
+    float radius2;
 };
 
 class PathPlaner {
