@@ -266,11 +266,11 @@ void Odometry::showLRMatches(){
 
 		imshow("Stereo matches", drawImg1);
 
-		int keyPressed = waitKey(1);
+		int keyPressed = int(char(waitKey(1)));
 
 		// Exit when esc key is pressed
         if( keyPressed== 27) break;
 	}
     destroyWindow("Stereo matches");
-    waitKey(1);
+    for(int i = 0; i < 10; i++) waitKey(1);
 }

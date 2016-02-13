@@ -170,7 +170,7 @@ void Simulator::avoidanceSimulator(bool autoEraseColumns = false){
     
     while(1){
         //Get current key pressed, if
-        int keyPressed = waitKey(1);
+        int keyPressed = int(char(waitKey(10)));
         
         /////////////Get the current square under the cursor/////////////////
         Point currentPixel = mouse.p;
@@ -218,7 +218,7 @@ void Simulator::avoidanceSimulator(bool autoEraseColumns = false){
             }
             //////////////////////////////
             imshow("Avoidance simulator", display);
-            int key = waitKey(0);
+            int key = int(char(waitKey(0)));
             if (key == 114) {
                 scenario.clearScenario();
                 display = Mat(display.rows, display.cols, CV_8UC3, COLOR_EMPTY);
@@ -234,7 +234,7 @@ void Simulator::avoidanceSimulator(bool autoEraseColumns = false){
         }
     }
     destroyWindow("Avoidance simulator");
-    waitKey(1);
+    for(int i = 0; i < 10; i++) waitKey(1); // In some systems, if this is not included windows may becmome unresponsive.
 }
 
 /*=========================================================================================*\
@@ -259,7 +259,7 @@ void Simulator::navigationSimulator(){
     
     while(1){
         //Get current key pressed, if
-        int keyPressed = waitKey(1);
+        int keyPressed = int(char(waitKey(10)));
         
         /////////////Get the current square under the cursor/////////////////
         Point currentPixel = mouse.p;
@@ -315,7 +315,7 @@ void Simulator::navigationSimulator(){
         }
     }
     destroyWindow("My Window");
-    waitKey(1);
+    for(int i = 0; i < 10; i++) waitKey(1); // In some systems, if this is not included windows may becmome unresponsive.
 }
 
 

@@ -29,12 +29,14 @@
 
 //  Standard libraries
 #include <stdio.h>
+#include <unistd.h>
 
 // File and folder paths
 #ifdef _WIN32 // Includes 32 and 64 bit versions
 
 #else
-const string DATA_DIRECTORY = "/usr/local/var/lib/autonomousCar/";
+const string INSTALL_DIRECTORY = "/usr/local/var/lib/autonomousCar/";
+const string DATA_DIRECTORY = "/users/" + string(getlogin()) + "/autonomousCar/"; // user home directory
 const string ARDUINO_SERIAL_PORT = "/dev/tty.usbmodem411";
 #endif
 
@@ -128,7 +130,7 @@ void mainLoop(StereoPair &stereoCam) {
         int keyPressed = waitKey(10);
         if( keyPressed== 27) {
             destroyWindow("Simulator");
-            waitKey(1);
+            for(int i = 0; i < 10; i++) waitKey(1);
             return;
         }
     }
@@ -140,8 +142,16 @@ using namespace std;
 
 int main(int argc, char* argv[])
 {
+    boost::filesystem::path dir(DATA_DIRECTORY);
+    if(boost::filesystem::create_directory(dir)) {
+        std::cout << "Created data folder: " + DATA_DIRECTORY << endl;
+        boost::filesystem::copy_file(boost::filesystem::path(INSTALL_DIRECTORY + "car_top.png"), boost::filesystem::path(DATA_DIRECTORY + "car_top.png"), boost::filesystem::copy_option::overwrite_if_exists);
+        boost::filesystem::copy_file(boost::filesystem::path(INSTALL_DIRECTORY + "semiglobal_block_match_parameters.xml"), boost::filesystem::path(DATA_DIRECTORY + "semiglobal_block_match_parameters.xml"), boost::filesystem::copy_option::overwrite_if_exists);
+        boost::filesystem::copy_file(boost::filesystem::path(INSTALL_DIRECTORY + "stereo_calibration_parameters.xml"), boost::filesystem::path(DATA_DIRECTORY + "stereo_calibration_parameters.xml"), boost::filesystem::copy_option::overwrite_if_exists);
+    }
+    
     StereoPair stereoCam(WIDTH, HEIGHT, FPS, DATA_DIRECTORY);
-    bool quit = false;
+    
     // Print options menu
     cout << "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
     cout << "Please write the desired command and press the ENTER key." << endl;
@@ -157,56 +167,55 @@ int main(int argc, char* argv[])
     cout << "8  : Launch feature tracking (current progress in odometry)" << endl;
     cout << "9  : Start main loop" << endl;
     cout << "10 : Exit" << endl;
-    while (!quit) {
-        bool commandRecognised = false;
-        while(!commandRecognised) {
-            bool commandRecognised = true;
-            cout << "\rCommand: ";
-            int command;
-            cin >> command;
-            switch (command) {
-                case 0: //  Show rectified images
-                    stereoCam.rectifyImages(true);
-                    stereoCam.displayImages(true /*drawLines*/);
-                    break;
-                case 1:
-                    stereoCam.rectifyImages(false);
-                    stereoCam.displayImages(true /*drawLines*/);
-                    break;
-                case 2:
-                    stereoCam.displayDisparityMap();
-                    break;
-                case 3:
-                    stereoCam.displayImage3D();
-                    cout << "Due to an unresolved bug in the VTK library, closing the point cloud window will block the program.\nPlease use the ESC key instead." << endl;
-                    break;
-                case 4:
-                    stereoCam.flipUpsideDown();
-                    break;
-                case 5:
-                    stereoCam.autoTuneExposure();
-                    break;
-                case 6:
-                    stereoCam.calibrate();
-                    break;
-                case 7:
-                    launchAvoidanceSimulator();
-                    break;
-                case 8:
-                    launchOdometry(stereoCam);
-                    break;
-                case 9:
-                    mainLoop(stereoCam);
-                    break;
-                case 10:
-                    quit = true;
-                    break;
-                    
-                default:
-                    commandRecognised = false;
-                    cout << "\nThe entered command was not recognised." << endl;
-                    break;
-            }
+    
+    bool commandRecognised = false;
+    while(!commandRecognised) {
+        bool commandRecognised = true;
+        cout << "\rCommand: ";
+        int command;
+        cin >> command;
+        switch (command) {
+            case 0: //  Show rectified images
+                stereoCam.rectifyImages(true);
+                stereoCam.displayImages(true /*drawLines*/);
+                break;
+            case 1:
+                stereoCam.rectifyImages(false);
+                stereoCam.displayImages(true /*drawLines*/);
+                break;
+            case 2:
+                stereoCam.displayDisparityMap();
+                break;
+            case 3:
+                stereoCam.displayImage3D();
+                cout << "Due to an unresolved bug in the VTK library, closing the point cloud window will block the program.\nPlease use the ESC key instead." << endl;
+                break;
+            case 4:
+                stereoCam.flipUpsideDown();
+                break;
+            case 5:
+                stereoCam.autoTuneExposure();
+                break;
+            case 6:
+                stereoCam.calibrate();
+                break;
+            case 7:
+                launchAvoidanceSimulator();
+                break;
+            case 8:
+                launchOdometry(stereoCam);
+                break;
+            case 9:
+                mainLoop(stereoCam);
+                break;
+            case 10:
+                return 0;
+                break;
+                
+            default:
+                commandRecognised = false;
+                cout << "\nThe entered command was not recognised." << endl;
+                break;
         }
     }
     // cout << getBuildInformation() << endl; // Print OpenCV build info

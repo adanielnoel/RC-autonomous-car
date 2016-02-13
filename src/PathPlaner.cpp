@@ -394,9 +394,6 @@ float PathPlaner::findAvoidancePath(ObstacleScenario &scenario, float initialCur
         cout << "No obstacles where detected" << endl;
         return 0.0;
     }
-  // imshow("Display", display);
-  //  waitKey(0);
-  //  return 0;
     
     vector<RadiusPair> goodRadiusRanges = findValidRadiusesRanges(tangentRadiuses);
     

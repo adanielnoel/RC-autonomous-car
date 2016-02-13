@@ -22,6 +22,7 @@ bool StereoPair::saveImage(Mat image, string imageName, string outputDirectory) 
         sprintf(fileName, "%s%s.png", outputDirectory.c_str(), imageName.c_str());
         try {
             imwrite(fileName, image);
+            cout << "Saved image: " << fileName << endl;
             return 1;
         }
         catch (std::runtime_error& ex){
@@ -251,8 +252,8 @@ void StereoPair::displayImages(bool drawLines) {
         }
         if (rectify) imshow("Rectified stereo images", LR);
         else imshow("Uncalibrated stereo images", LR);
-        
-        int keyPressed = waitKey(10);
+
+        int keyPressed = int(char(waitKey(10)));
         
         // Save the images if 's' or 'S' key has been pressed
         if( keyPressed==83 || keyPressed==115) {
@@ -274,7 +275,7 @@ void StereoPair::displayImages(bool drawLines) {
             // Close the windows
             if (rectify) destroyWindow("Rectified stereo images");
             else destroyWindow("Uncalibrated stereo images");
-            waitKey(1);
+            for(int i = 0; i < 10; i++) waitKey(1); // In some systems, if this is not included windows may becmome unresponsive.
             return;
         }
     }
@@ -409,7 +410,7 @@ void StereoPair::displayImage3D(){
         updateImage3D();
         updatePointCloudVisualizer(viewer);
         viewer->spinOnce(10, true);
-        int keyPressed = waitKey(10);
+        int keyPressed = int(char(waitKey(10)));
         if (keyPressed==27){
             viewer->close();
         }
@@ -516,7 +517,7 @@ void StereoPair::displayDisparityMap() {
     
     while(1){
         updateImages();
-        updateDisparityImg();
+        updateDisparityImg(0.4);
         Mat disparityMapNormalised = getDisparityImageNormalised();
         
         //        Turn white points into black points
@@ -532,7 +533,7 @@ void StereoPair::displayDisparityMap() {
         imshow("Disparity", disparityMapNormalised);
         
         // Wait for key press
-        int keyPressed = waitKey(20);
+        int keyPressed = int(char(waitKey(20)));
         
         // Run point cloud visualizer if 'd' or 'D' keys are pressed
         if(keyPressed== 68 || keyPressed==100) {
@@ -556,7 +557,7 @@ void StereoPair::displayDisparityMap() {
     }
     destroyWindow("Disparity");
     destroyWindow("Controls");
-    waitKey(1);
+    for(int i = 0; i < 10; i++) waitKey(1); // In some systems, if this is not included windows may becmome unresponsive.
 }
 
 //————————————————————————————————————————————————————————————————————
@@ -663,7 +664,7 @@ void StereoPair::calibrate(){
             imshow("Live calibration view", calibDisplay);
             
     		// Wait for key press
-    		int keyPressed = waitKey(20);
+    		int keyPressed = int(char(waitKey(20)));
 
     		// Take images if 'n' or 'N' keys have been pressed
     		if( keyPressed==78 || keyPressed==110)
@@ -701,12 +702,14 @@ void StereoPair::calibrate(){
     		}
     		else if(keyPressed==27){
     			destroyWindow("Live calibration view");
+                for(int i = 0; i < 10; i++) waitKey(1);
     			return;
     		}
     	}
     }
     
     destroyWindow("Live calibration view");
+    for(int i = 0; i < 10; i++) waitKey(1);
 
     ////////FILL "objectPoints" WITH THE COORDINATES OF THE BOARD CORNERS////////
     for( i = 0; i < nimages; i++ )
@@ -838,6 +841,7 @@ void StereoPair::setupDisparityParameters() {
         semiGlobalBlobMatch.P1 = 240;
         semiGlobalBlobMatch.P2 = 2339;
     }
+
 }
 
 
@@ -894,7 +898,7 @@ void StereoPair::autoTuneExposure(){    // TODO: auto adjust infrared led intens
     const int whiteThreshold = 254;
     const int maxNumberOfWhitePixels = 50000;
     const int minNumberOfWhitePixels = 40000;
-    const int numberOfIterations = 50;
+    const int numberOfIterations = 60;
     
     updateImages();
     
@@ -929,10 +933,10 @@ void StereoPair::autoTuneExposure(){    // TODO: auto adjust infrared led intens
         putText(LR, "Exposure: " + to_string(exposure), Point(50,40), FONT_HERSHEY_SIMPLEX, 0.7, CV_RGB(255, 123, 47), 2);
         putText(LR, "LED     : " + to_string(ledIntensity), Point(50,70), FONT_HERSHEY_SIMPLEX, 0.7, CV_RGB(255, 123, 47), 2);
         imshow("autotune exposure", LR);
-        waitKey(20);
+        waitKey(1);
     }
     destroyWindow("autotune exposure");
-    waitKey(1);
+    for(int i = 0; i < 10; i++) waitKey(1);
 }
 #endif
 
