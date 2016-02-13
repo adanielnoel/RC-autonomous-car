@@ -71,6 +71,22 @@ void testArduino() {
 }
 
 
+void launchAvoidanceSimulator(){
+    float width = 3.0;       //In meters
+    float depth = 2.0;       //In meters
+    float squareSize = 0.1; //In meters
+    int windowWidth = 800;
+    Simulator simulator(width, depth, squareSize, Simulator::TYPE_AVOIDANCE, windowWidth, DATA_DIRECTORY);
+    simulator.runSimulation();
+}
+
+
+void launchOdometry(StereoPair stereoCam){
+    Odometry odometry(stereoCam);
+    odometry.showLRMatches();
+}
+
+
 void mainLoop(StereoPair &stereoCam) {
     float scenWidth = 3.0;  // meters
     float scenDepth = 2.0;  // meters
@@ -130,71 +146,66 @@ int main(int argc, char* argv[])
     cout << "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
     cout << "Please write the desired command and press the ENTER key." << endl;
     cout << "The following is a list of commands and the part of the program they activate:\n" << endl;
-    cout << "sr  : Show rectified images" << endl;
-    cout << "su  : Show unrectified images" << endl;
-    cout << "in  : invert camera" << endl;
-    cout << "at  : autotune exposure" << endl;
-    cout << "cal : calibrate stereo camera" << endl;
-    cout << "sd  : Show disparity map" << endl;
-    cout << "sim : Launch path planner simulator" << endl;
-    cout << "odo : Launch feature tracking (current progress in odometry)" << endl;
-    cout << "loop: Start main loop" << endl;
-    cout << "q   : Exit" << endl;
+    cout << "0  : Show rectified images" << endl;
+    cout << "1  : Show unrectified images" << endl;
+    cout << "2  : Show disparity map" << endl;
+    cout << "3  : Show point cloud" << endl;
+    cout << "4  : invert camera" << endl;
+    cout << "5  : autotune exposure" << endl;
+    cout << "6  : calibrate stereo camera" << endl;
+    cout << "7  : Launch path planner simulator" << endl;
+    cout << "8  : Launch feature tracking (current progress in odometry)" << endl;
+    cout << "9  : Start main loop" << endl;
+    cout << "10 : Exit" << endl;
     while (!quit) {
         bool commandRecognised = false;
         while(!commandRecognised) {
+            bool commandRecognised = true;
             cout << "\rCommand: ";
-            string command;
+            int command;
             cin >> command;
-            if (command == "sr") {
-                stereoCam.rectifyImages(true);
-                stereoCam.displayImages(true /*drawLines*/);
-                commandRecognised = true;
-            }
-            else if (command == "su") {
-                stereoCam.rectifyImages(false);
-                stereoCam.displayImages(true /*drawLines*/);
-                commandRecognised = true;
-            }
-            else if (command == "in") {
-                stereoCam.flipUpsideDown();
-                commandRecognised = true;
-            }
-            else if (command == "at") {
-                stereoCam.autoTuneExposure();
-                commandRecognised = true;
-            }
-            else if (command == "cal") {
-                stereoCam.calibrate();
-                commandRecognised = true;
-            }
-            else if (command == "sd") {
-                stereoCam.displayDisparityMap();
-                commandRecognised = true;
-            }
-            else if (command == "sim") {
-                float width = 3.0;       //In meters
-                float depth = 2.0;       //In meters
-                float squareSize = 0.1; //In meters
-                int windowWidth = 800;
-                Simulator simulator(width, depth, squareSize, Simulator::TYPE_AVOIDANCE, windowWidth, DATA_DIRECTORY);
-                simulator.runSimulation();
-                commandRecognised = true;
-            }
-            else if (command == "odo") {
-                Odometry odometry(stereoCam);
-                odometry.showLRMatches();
-                commandRecognised = true;
-            }
-            else if (command == "loop"){
-                mainLoop(stereoCam);
-            }
-            else if (command == "q") {
-                quit = true;
-                commandRecognised = true;
-            }
-            else {
-                cout << "\nThe entered command was not recognised." << endl;
+            switch (command) {
+                case 0: //  Show rectified images
+                    stereoCam.rectifyImages(true);
+                    stereoCam.displayImages(true /*drawLines*/);
+                    break;
+                case 1:
+                    stereoCam.rectifyImages(false);
+                    stereoCam.displayImages(true /*drawLines*/);
+                    break;
+                case 2:
+                    stereoCam.displayDisparityMap();
+                    break;
+                case 3:
+                    stereoCam.displayImage3D();
+                    cout << "Due to an unresolved bug in the VTK library, closing the point cloud window will block the program.\nPlease use the ESC key instead." << endl;
+                    break;
+                case 4:
+                    stereoCam.flipUpsideDown();
+                    break;
+                case 5:
+                    stereoCam.autoTuneExposure();
+                    break;
+                case 6:
+                    stereoCam.calibrate();
+                    break;
+                case 7:
+                    launchAvoidanceSimulator();
+                    break;
+                case 8:
+                    launchOdometry(stereoCam);
+                    break;
+                case 9:
+                    mainLoop(stereoCam);
+                    break;
+                case 10:
+                    quit = true;
+                    break;
+                    
+                default:
+                    commandRecognised = false;
+                    cout << "\nThe entered command was not recognised." << endl;
+                    break;
             }
         }
     }

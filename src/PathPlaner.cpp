@@ -31,16 +31,6 @@ PathPlaner::~PathPlaner() {
 	// TODO Auto-generated destructor stub
 }
 
-bool PathPlaner::updateObstacleScenario(Mat dispImg){
-    
-    return false;
-}
-
-bool PathPlaner::findNavigationPath(ObstacleScenario &scenario, Point2i initialLocation, Point2i targetLocation){
-
-	return false; //While this section is not written
-}
-
 void PathPlaner::drawAvoidancePaths(cv::Mat &display, vector<RadiusPair> radiusRanges, Point2f viewerLoc){
     
     for (unsigned int i = 0; i < radiusRanges.size(); i++) {
@@ -375,14 +365,14 @@ float PathPlaner::findAvoidancePath(ObstacleScenario &scenario, float initialCur
     pixelsPerMeter = (int)squarePixelSize/scenario.squareSize;
     squareSize = scenario.squareSize;
     scen = scenario.scenario;
-    int scenX = (int)scen.size();
-    int scenY = (int)scen.at(0).size();
-    Point viewerLoc = Point(scenX/2, scenY);
+    int scenWidth = (int)scen.size();
+    int scenDepth = (int)scen.at(0).size();
+    Point viewerLoc = Point(scenWidth/2, scenDepth);
     Point2f viewerLocMeters = Point2f(viewerLoc.x*squareSize, viewerLoc.y*squareSize);
     vector<RadiusPair> tangentRadiuses;
     
-    for (int i = 0; i<scenX; i++) {
-        for (int j = 0; j<scenY; j++) {
+    for (int i = 0; i<scenWidth; i++) {
+        for (int j = 0; j<scenDepth; j++) {
             if (scen.at(i).at(j) == 1) {
                 vector<Corner> corners;
                 neighborExpand(Point(i, j), viewerLoc, corners); //Corner location is relative to viewer's location

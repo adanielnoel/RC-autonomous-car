@@ -16,6 +16,7 @@
 #include "pcl/common/common_headers.h"
 #include "pcl/io/pcd_io.h"
 #include "pcl/visualization/pcl_visualizer.h"
+#include <pcl/visualization/cloud_viewer.h>
 #include "boost/thread/thread.hpp"
 #include "DUOLib.h"
 
@@ -92,6 +93,8 @@ public:
     void displayImages(bool drawLines);
     void displayDisparityMap();
     void displayImage3D();
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> getPointCloudVisualizer();
+    void updatePointCloudVisualizer(boost::shared_ptr<pcl::visualization::PCLVisualizer> & viewer);
     
 	// Initialization methods
 	void setupRectification();

@@ -319,13 +319,30 @@ void StereoPair::updateDisparityImg(float scaleFactor){
     else semiGlobalBlobMatch(leftImage, rightImage, disparityMap);
 }
 
+
 //————————————————————————————————————————————————————————————————————
-//  displayImage3D
+//  getPointCloudVisualizer
 //————————————————————————————————————————————————————————————————————
 
-void StereoPair::displayImage3D(){
+boost::shared_ptr<pcl::visualization::PCLVisualizer> StereoPair::getPointCloudVisualizer() {
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
+    viewer->setBackgroundColor (1, 1, 1);
+    viewer->addCoordinateSystem ( 1.0 );
+    viewer->initCameraParameters ();
+    
+    updatePointCloudVisualizer(viewer);
+    
+    return viewer;
+}
+
+
+//————————————————————————————————————————————————————————————————————
+//  updatePointCloudVisualizer
+//————————————————————————————————————————————————————————————————————
+
+void StereoPair::updatePointCloudVisualizer(boost::shared_ptr<pcl::visualization::PCLVisualizer> & viewer) {
+    bool usePixelColor = false;
     //Create point cloud and fill it
-    std::cout << "Creating Point Cloud..." <<std::endl;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
     float minZ = 1000000, maxZ = 0;
     for(int i = 0; i < image3D.cols; i++){
@@ -337,35 +354,61 @@ void StereoPair::displayImage3D(){
             if(point.z < minZ) minZ = point.z;
             if (point.z > maxZ) maxZ = point.z;
             
+            if (usePixelColor) {
+                Scalar color = leftImage.at<uchar>(Point(i, j));
+                uint8_t r(color.val[0]);
+                uint8_t g(color.val[0]);
+                uint8_t b(color.val[0]);
+                uint32_t rgb = (static_cast<uint32_t>(r) << 16 |
+                                static_cast<uint32_t>(g) << 8 | static_cast<uint32_t>(b));
+                point.rgb = *reinterpret_cast<float*>(&rgb);
+            }
+            
             point_cloud_ptr->points.push_back(point);
             //cout << "X: " << point.x << "   Y: " << point.y << "   Z: " << point.z << endl;
         }
     }
-    cout << "minZ: " << minZ << "     maxZ: " << maxZ << endl;
-    for(unsigned int i = 0; i < point_cloud_ptr->size(); i++){
-        float pz = point_cloud_ptr->at(i).z;
-        uint8_t r(255 - constrain(mapValue(pz, minZ, maxZ, 0, 255), 0, 255));
-        uint8_t g(constrain(mapValue(pz, minZ, maxZ, 0, 255), 0, 255));
-        uint8_t b(15);
-        uint32_t rgb = (static_cast<uint32_t>(r) << 16 |
-                        static_cast<uint32_t>(g) << 8 | static_cast<uint32_t>(b));
-        point_cloud_ptr->at(i).rgb = *reinterpret_cast<float*>(&rgb);
+    // cout << "minZ: " << minZ << "     maxZ: " << maxZ << endl;
+    
+    if (!usePixelColor) {
+        //  Apply color gradient to the point cloud
+        for(unsigned int i = 0; i < point_cloud_ptr->size(); i++){
+            float pz = point_cloud_ptr->at(i).z;
+            uint8_t r(255 - constrain(mapValue(pz, minZ, maxZ, 0, 255), 0, 255));
+            uint8_t g(constrain(mapValue(pz, minZ, maxZ, 0, 255), 0, 255));
+            uint8_t b(15);
+            
+            uint32_t rgb = (static_cast<uint32_t>(r) << 16 |
+                            static_cast<uint32_t>(g) << 8 | static_cast<uint32_t>(b));
+            point_cloud_ptr->at(i).rgb = *reinterpret_cast<float*>(&rgb);
+        }
     }
+    
     point_cloud_ptr->width = (int) point_cloud_ptr->points.size();
     point_cloud_ptr->height = 1;
     
-    boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
-    viewer->setBackgroundColor (1, 1, 1);
+    viewer->removeAllPointClouds();
     pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb(point_cloud_ptr);
     viewer->addPointCloud<pcl::PointXYZRGB>(point_cloud_ptr, rgb, "reconstruction");
-    viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "reconstruction");
-    viewer->addCoordinateSystem ( 1.0 );
-    viewer->initCameraParameters ();
+    viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "reconstruction");
+}
+
+
+//————————————————————————————————————————————————————————————————————
+//  displayImage3D
+//————————————————————————————————————————————————————————————————————
+
+void StereoPair::displayImage3D(){
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = getPointCloudVisualizer();
     
-    while ( !viewer->wasStopped())
+    while (!viewer->wasStopped())
     {
-        viewer->spinOnce(100);
-        boost::this_thread::sleep (boost::posix_time::microseconds (500000));
+        boost::this_thread::sleep (boost::posix_time::microseconds (100000));
+        updateImages();
+        updateDisparityImg();
+        updateImage3D();
+        updatePointCloudVisualizer(viewer);
+        viewer->spinOnce(10, true);
         int keyPressed = waitKey(10);
         if (keyPressed==27){
             viewer->close();

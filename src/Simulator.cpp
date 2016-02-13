@@ -307,7 +307,9 @@ void Simulator::navigationSimulator(){
             ObstacleScenario obstacleScenario = scenario;
             PathPlaner planer;
             bool success;
-            success = planer.findNavigationPath(obstacleScenario, initialLocation, targetLocation);
+            //success = planer.findNavigationPath(obstacleScenario, initialLocation, targetLocation);
+            cout << "There are still no capabilities for navigation path planning!!!" << endl;
+            success = false;
             if(!success) cout << "***NO SUITABLE PATH FOUND***" << endl;
             break;
         }

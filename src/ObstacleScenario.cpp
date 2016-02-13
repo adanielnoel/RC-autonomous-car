@@ -22,40 +22,20 @@ ObstacleScenario::ObstacleScenario(float _width, float _depth, float _squareSize
     int XSquares = ceil(width/squareSize);
     int ZSquares = ceil(depth/squareSize);
     
-    vector<vector<int> > newScen;
-    
+    //  Create an empty scenario of the given dimensions
+    scenario = {};
     for (int i = 0; i < XSquares; i++) {
         vector<int> newCol;
         for (int j = 0; j < ZSquares; j++) {
             newCol.push_back(0);
         }
-        newScen.push_back(newCol);
+        scenario.push_back(newCol);
     }
-    
-    scenario = newScen;
 }
-
-ObstacleScenario::ObstacleScenario(int _XSquares, int _YSquares){
-    int XSquares = _XSquares;
-    int ZSquares = _YSquares;
-    
-    vector<vector<int> > newScen;
-    
-    for (int i = 0; i < XSquares; i++) {
-        vector<int> newCol;
-        for (int j = 0; j < ZSquares; j++) {
-            newCol.push_back(0);
-        }
-        newScen.push_back(newCol);
-    }
-    
-    scenario = newScen;
-}
-
 
 
 void ObstacleScenario::populateScenario(Mat &image3D, bool &obstaclesDetected) {
-    this->clearScenario();
+    clearScenario();
     if (image3D.empty()) return;
     
     points.clear(); // Remove all previous points
@@ -83,16 +63,11 @@ void ObstacleScenario::populateScenario(Mat &image3D, bool &obstaclesDetected) {
 }
 
 void ObstacleScenario::clearScenario(){
-    vector<vector<int> > newScen;
     for (int i = 0; i < scenario.size(); i++) {
-        vector<int> newCol;
         for (int j = 0; j < scenario.at(0).size(); j++) {
-            newCol.push_back(0);
+            scenario.at(i).at(j) = 0;
         }
-        newScen.push_back(newCol);
     }
-    
-    scenario = newScen;
 }
 
 /*
