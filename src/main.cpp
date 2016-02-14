@@ -34,9 +34,13 @@
 // File and folder paths
 #ifdef _WIN32 // Includes 32 and 64 bit versions
 
-#else
+#elif __APPLE__
 const string INSTALL_DIRECTORY = "/usr/local/var/lib/autonomousCar/";
 const string DATA_DIRECTORY = "/users/" + string(getlogin()) + "/autonomousCar/"; // user home directory
+const string ARDUINO_SERIAL_PORT = "/dev/tty.usbmodem411";
+#else
+const string INSTALL_DIRECTORY = "/usr/local/var/lib/autonomousCar/";
+const string DATA_DIRECTORY = "/home/" + string(getlogin()) + "/autonomousCar/"; // user home directory
 const string ARDUINO_SERIAL_PORT = "/dev/tty.usbmodem411";
 #endif
 
@@ -145,9 +149,9 @@ int main(int argc, char* argv[])
     boost::filesystem::path dir(DATA_DIRECTORY);
     if(boost::filesystem::create_directory(dir)) {
         std::cout << "Created data folder: " + DATA_DIRECTORY << endl;
-        boost::filesystem::copy_file(boost::filesystem::path(INSTALL_DIRECTORY + "car_top.png"), boost::filesystem::path(DATA_DIRECTORY + "car_top.png"), boost::filesystem::copy_option::overwrite_if_exists);
-        boost::filesystem::copy_file(boost::filesystem::path(INSTALL_DIRECTORY + "semiglobal_block_match_parameters.xml"), boost::filesystem::path(DATA_DIRECTORY + "semiglobal_block_match_parameters.xml"), boost::filesystem::copy_option::overwrite_if_exists);
-        boost::filesystem::copy_file(boost::filesystem::path(INSTALL_DIRECTORY + "stereo_calibration_parameters.xml"), boost::filesystem::path(DATA_DIRECTORY + "stereo_calibration_parameters.xml"), boost::filesystem::copy_option::overwrite_if_exists);
+        boost::filesystem::copy(boost::filesystem::path(INSTALL_DIRECTORY + "car_top.png"), boost::filesystem::path(DATA_DIRECTORY + "car_top.png"));
+        boost::filesystem::copy(boost::filesystem::path(INSTALL_DIRECTORY + "semiglobal_block_match_parameters.xml"), boost::filesystem::path(DATA_DIRECTORY + "semiglobal_block_match_parameters.xml"));
+        boost::filesystem::copy(boost::filesystem::path(INSTALL_DIRECTORY + "stereo_calibration_parameters.xml"), boost::filesystem::path(DATA_DIRECTORY + "stereo_calibration_parameters.xml"));
     }
     
     StereoPair stereoCam(WIDTH, HEIGHT, FPS, DATA_DIRECTORY);

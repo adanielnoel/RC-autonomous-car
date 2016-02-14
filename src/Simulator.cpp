@@ -303,7 +303,7 @@ void Simulator::navigationSimulator(){
         
         if( keyPressed == 27)	break;          //If keypressed is ESC exit simulation
         
-        else if(keyPressed == 13){              //If keypressed is ENTER send scenario to path planner
+        else if(keyPressed == 13 || keyPressed == 10){              //If keypressed is ENTER send scenario to path planner
             ObstacleScenario obstacleScenario = scenario;
             PathPlaner planer;
             bool success;
