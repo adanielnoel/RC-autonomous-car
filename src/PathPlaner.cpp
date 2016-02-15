@@ -223,7 +223,7 @@ RadiusPair findMinMaxRadius(vector<Corner> corners, Point2f initLoc){
                     rad1 = newRadius; //Always take the greather radius, to ensure it is only tangent at one point.
             }
         }
-        if (!currentCorner.isTop) {
+        else {
             if (currentCorner.cornerLoc.x < -PathPlaner::HALF_VEHICLE_WIDTH){
                 newRadius = radiusForTangency(Point2f(currentCorner.cornerLoc.x - PathPlaner::HALF_VEHICLE_WIDTH, currentCorner.cornerLoc.y));
                 newRadius += PathPlaner::HALF_VEHICLE_WIDTH; //As the returned radius will be negative, this decreases its absolute value.

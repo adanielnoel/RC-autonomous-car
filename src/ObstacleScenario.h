@@ -17,15 +17,17 @@ using namespace std;
 
 class ObstacleScenario {
 public:
-    Rect regionOfInterest; //This contains the region of the disparyty image used to populate the 2D map.
-	float width;			//In meters
-	float depth;			//In meters
-	float squareSize;	//In meters
-	vector< vector<int> > scenario; //A value of 0 means free, 1 means occupied
+	float width;		//  In meters
+	float depth;		//  In meters
+	float squareSize;	//  In meters
+    float minY;         //  In meters. This is the minimum elevation to start considering.
+    float maxY;         //  In meters. This is the maximum elevation to consider.
+    float scaleFactor;
+	vector< vector<int> > scenario; //A value of 0 means free, 1 means occupied. The origin is the upper-left corner
     vector<Point2f> points;
     
     ObstacleScenario();
-    ObstacleScenario(float _width, float _depth, float _squareSize);
+    ObstacleScenario(float _width, float _depth, float _squareSize, float _minY = 0, float _maxY = 0);
     ObstacleScenario(int _XSquares, int _YSquares);
     void populateScenario(Mat &image3D, bool &obstaclesDetected);
     void clearScenario();

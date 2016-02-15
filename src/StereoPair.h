@@ -22,9 +22,8 @@
 
 //#include "cv.h"
 
-#ifndef DUO3D
+
 #define DUO3D
-#endif
 
 using namespace cv;
 using namespace std;
@@ -79,6 +78,7 @@ public:
     Mat				rightImage;			// Rectified right image
 	Mat				disparityMap;       // Disparity map (not normalized)
 	Mat				image3D;            // Depth map
+    float           maximumDepth;
     
 	// Constructors and destructors
     StereoPair();
@@ -109,6 +109,7 @@ public:
     Mat glueTwoImagesVertical(Mat Img1, Mat Img2);
     bool saveImage(Mat image, string imageName, string outputDirectory);
     void flipUpsideDown();
+    float computeFieldOfView();
 #ifdef DUO3D
     void autoTuneExposure();
 #endif

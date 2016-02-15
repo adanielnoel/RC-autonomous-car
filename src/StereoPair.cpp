@@ -84,6 +84,7 @@ StereoPair::StereoPair(int width, int height, int fps, string _dataDirectory){
     dataDirectory = _dataDirectory;
     imageWidth = width;
     imageHeight = height;
+    maximumDepth = -1.0; // Default: not apply filter when displaying point cloud;
     
     // Setting some defaults
     useColorImages = false;
@@ -209,10 +210,13 @@ void StereoPair::updateImages() {
     }
 # endif
     if (flippedUpsideDown) {
-        flip(newFrameL, newFrameL, 0);  // Flip vertically
-        flip(newFrameR, newFrameR, 0);  // Flip vertically
-        flip(newFrameL, newFrameL, 1);  // Flip horizontally
-        flip(newFrameR, newFrameR, 1);  // Flip horizontally
+        Mat tmpL, tmpR;
+        flip(newFrameL, tmpL, -1);  // Flip vertically
+        flip(newFrameR, tmpR, -1);  // Flip vertically
+        newFrameL = tmpR;   // Since we are upsidedown, now left is right
+        newFrameR = tmpL;   // Since we are upsidedown, now right is left
+        //flip(newFrameL, newFrameL, 1);  // Flip horizontally
+        //flip(newFrameR, newFrameR, 1);  // Flip horizontally
     }
    
     rightImage = swapped? newFrameL : newFrameR;
@@ -235,7 +239,6 @@ void StereoPair::displayImages(bool drawLines) {
 //    else namedWindow("Uncalibrated stereo images", CV_WINDOW_NORMAL);
     // Reset frame counter
     int frameCount = 0;
-    autoTuneExposure();
     
     for (;;) {
         updateImages();
@@ -248,8 +251,12 @@ void StereoPair::displayImages(bool drawLines) {
                 Point pt2(LR.cols, h);
                 line(LR, pt1, pt2, CV_RGB(255, 123, 47), 1);
             }
-            
         }
+        
+        // Draw available commands on the bottom-left corner of the window
+        string message = "s: Save images    a: Autotune exposure     ESC: Close mode";
+        putText(LR, message, Point(10, LR.rows - 10), FONT_HERSHEY_COMPLEX_SMALL, 0.7, CV_RGB(255, 123, 47), 1, CV_AA);
+        
         if (rectify) imshow("Rectified stereo images", LR);
         else imshow("Uncalibrated stereo images", LR);
 
@@ -343,15 +350,19 @@ boost::shared_ptr<pcl::visualization::PCLVisualizer> StereoPair::getPointCloudVi
 
 void StereoPair::updatePointCloudVisualizer(boost::shared_ptr<pcl::visualization::PCLVisualizer> & viewer) {
     bool usePixelColor = false;
+    float pointCloudScale = 100.0;
     //Create point cloud and fill it
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr point_cloud_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
     float minZ = 1000000, maxZ = 0;
     for(int i = 0; i < image3D.cols; i++){
+        #pragma omp parallel for
         for(int j = 0; j < image3D.rows; j++){
             pcl::PointXYZRGB point;
-            point.x = float(image3D.at<Vec3f>(j, i).val[0]*100.0);
-            point.y = float(image3D.at<Vec3f>(j, i).val[1]*100.0);
-            point.z = float(image3D.at<Vec3f>(j, i).val[2]*100.0);
+            point.x = float(image3D.at<Vec3f>(j, i).val[0]*pointCloudScale);
+            point.y = float(image3D.at<Vec3f>(j, i).val[1]*pointCloudScale);
+            point.z = float(image3D.at<Vec3f>(j, i).val[2]*pointCloudScale);
+            // Filter points that are at the background (noise)
+            if (point.z > maximumDepth) continue;
             if(point.z < minZ) minZ = point.z;
             if (point.z > maxZ) maxZ = point.z;
             
@@ -360,25 +371,38 @@ void StereoPair::updatePointCloudVisualizer(boost::shared_ptr<pcl::visualization
                 uint8_t r(color.val[0]);
                 uint8_t g(color.val[0]);
                 uint8_t b(color.val[0]);
+                if (float(image3D.at<Vec3f>(j, i).val[2]) > 0.015) {
+                    r = uint8_t(0);
+                    g = uint8_t(0);
+                    b = uint8_t(255);
+                }
+                
                 uint32_t rgb = (static_cast<uint32_t>(r) << 16 |
                                 static_cast<uint32_t>(g) << 8 | static_cast<uint32_t>(b));
                 point.rgb = *reinterpret_cast<float*>(&rgb);
             }
             
+            /*  // Used for debugging the function populateScenario from ObstacleScenario class
+            if(point.y > 0.0 && point.y < 0.1) {
+                if(point.x > -3.0/2.0 && point.x < 3.0/2.0) {
+                    if (point.z < 2.0) {
+                        point_cloud_ptr->points.push_back(point);
+                    }
+                }
+            }
+            */
             point_cloud_ptr->points.push_back(point);
-            //cout << "X: " << point.x << "   Y: " << point.y << "   Z: " << point.z << endl;
         }
     }
-    // cout << "minZ: " << minZ << "     maxZ: " << maxZ << endl;
     
     if (!usePixelColor) {
         //  Apply color gradient to the point cloud
+        #pragma omp parallel for
         for(unsigned int i = 0; i < point_cloud_ptr->size(); i++){
             float pz = point_cloud_ptr->at(i).z;
             uint8_t r(255 - constrain(mapValue(pz, minZ, maxZ, 0, 255), 0, 255));
             uint8_t g(constrain(mapValue(pz, minZ, maxZ, 0, 255), 0, 255));
             uint8_t b(15);
-            
             uint32_t rgb = (static_cast<uint32_t>(r) << 16 |
                             static_cast<uint32_t>(g) << 8 | static_cast<uint32_t>(b));
             point_cloud_ptr->at(i).rgb = *reinterpret_cast<float*>(&rgb);
@@ -496,9 +520,12 @@ Mat StereoPair::getDisparityImageNormalised(){
 //————————————————————————————————————————————————————————————————————
 
 void StereoPair::displayDisparityMap() {
-    namedWindow("Disparity", CV_WINDOW_NORMAL);
-    namedWindow("Controls", CV_WINDOW_NORMAL);
+    namedWindow("Disparity", CV_WINDOW_AUTOSIZE);
     
+    //  Create the Controls window
+    namedWindow("Controls", CV_WINDOW_NORMAL);
+    Mat controlsBackground(1, 450, leftImage.type(), Scalar(150));
+    imshow("Controls", controlsBackground);
     createTrackbar("SADWindowSize", "Controls", &semiGlobalBlobMatch.SADWindowSize, 50);
     //  createTrackbar("numberOfDisparities", "Controls", &sgbm.numberOfDisparities, 1000);
     createTrackbar("preFilterCap", "Controls", &semiGlobalBlobMatch.preFilterCap, 100);
@@ -513,22 +540,18 @@ void StereoPair::displayDisparityMap() {
     //int whiteThreshold = 255;
     int frameCount = 0;
     
-    cout << "Press \n's' to save disparity map\n'd' to launch the 3D visualizer\n'x' to save current SGBM parameters" << endl;
-    
     while(1){
         updateImages();
         updateDisparityImg(0.4);
         Mat disparityMapNormalised = getDisparityImageNormalised();
         
-        //        Turn white points into black points
-        //        for( int i = 0; i < disparityMapNormalised.rows; ++i){
-        //            for( int j = 0; j < disparityMapNormalised.cols; ++j ){
-        //                Scalar intensity = disparityMapNormalised.at<uchar>(Point(j, i));
-        //                if(intensity.val[0] > whiteThreshold){
-        //                    dispNorm.at<uchar>(Point(j, i)) = 0;
-        //                }
-        //            }
-        //        }
+        cvtColor(disparityMapNormalised, disparityMapNormalised, COLOR_GRAY2BGR);
+        
+        // Draw available commands on the bottom-left corner of the window
+        string message = "s: Save images                  d: Launch point cloud viewer";
+        putText(disparityMapNormalised, message, Point(10, disparityMapNormalised.rows - 30), FONT_HERSHEY_COMPLEX_SMALL, 0.7, CV_RGB(255, 123, 47), 1, CV_AA);
+        message = "x: Save current parameters    ESC: Close mode";
+        putText(disparityMapNormalised, message, Point(10, disparityMapNormalised.rows - 10), FONT_HERSHEY_COMPLEX_SMALL, 0.7, CV_RGB(255, 123, 47), 1, CV_AA);
         
         imshow("Disparity", disparityMapNormalised);
         
@@ -712,6 +735,7 @@ void StereoPair::calibrate(){
     for(int i = 0; i < 10; i++) waitKey(1);
 
     ////////FILL "objectPoints" WITH THE COORDINATES OF THE BOARD CORNERS////////
+    #pragma omp parallel for
     for( i = 0; i < nimages; i++ )
     {
         for( j = 0; j < boardSize.height; j++ )
@@ -753,6 +777,7 @@ void StereoPair::calibrate(){
     {
         int npt = (int)imagePoints[0][i].size();
         Mat imgpt[2];
+        #pragma omp parallel for
         for( k = 0; k < 2; k++ )
         {
             imgpt[k] = Mat(imagePoints[k][i]);
@@ -888,6 +913,28 @@ void StereoPair::flipUpsideDown() {
     flippedUpsideDown = !flippedUpsideDown;
 }
 
+
+//————————————————————————————————————————————————————————————————————
+//  computeFieldOfView
+//————————————————————————————————————————————————————————————————————
+
+float StereoPair::computeFieldOfView() {
+    float maxX = 0;
+    float maxZ = 0;
+    if (!image3D.empty()) {
+        for(int i = 0; i < image3D.cols; i++){
+            for(int j = 0; j < image3D.rows; j++){
+                float x = float(image3D.at<Vec3f>(j, i).val[0]);
+                float z = float(image3D.at<Vec3f>(j, i).val[2]);
+                if (abs(x) > maxX) maxX = x;
+                if (abs(z) > maxZ) maxZ = z;
+            }
+        }
+        float fieldOfView = (2*atan(maxX/maxZ))*(180/3.1415);
+        return fieldOfView;
+    }
+    else return -1;
+}
 
 #ifdef DUO3D
 //————————————————————————————————————————————————————————————————————

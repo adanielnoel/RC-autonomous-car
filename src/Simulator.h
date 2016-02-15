@@ -41,11 +41,6 @@ class Simulator {
     void drawGrid();
 
 public:
-    static const int TYPE_AVOIDANCE;
-    static const int TYPE_NAVIGATION;
-    static const int TYPE_NONE;
-    
-    int simulatorType;
     float fov;  //Used only for avoidance simulator
     float depth;//Used only for avoidance simulator
     ObstacleScenario scenario;
@@ -53,13 +48,10 @@ public:
     int squarePixelSize;
     Mat display;
     
-    Simulator();
-	Simulator(float width, float height, float squareSize, int type, int windowWidth, string _dataDirectory = "");	//Use real world measures
-	void runSimulation();
-    void avoidanceSimulator(bool autoEraseColumns);
+	Simulator(float width, float height, float squareSize, int windowWidth, string _dataDirectory = "");	//Use real world measures
+    void runSimulation(bool autoEraseColumns = false);
     void navigationSimulator();
-    Mat drawScenario(vector<Point2f> points = {});
-	virtual ~Simulator();
+    Mat drawScenario(vector<Point2f> points = {}, float fov = -1);  // Returns image with scenario drawn
 };
 
 #endif /* SIMULATOR_H_ */

@@ -8,8 +8,11 @@
 #define WIDTH	640
 #define HEIGHT	480
 #define FPS		30
+#define FOV     70
 #define DUO3D
-
+#define MAX_DEPTH 2.0
+// Scale fator for adjusting the scale of the 3D reconstruction
+#define SCALE_FACTOR_3D_RECONSTRUCTION 50.0
 
 
 
@@ -82,7 +85,7 @@ void launchAvoidanceSimulator(){
     float depth = 2.0;       //In meters
     float squareSize = 0.1; //In meters
     int windowWidth = 800;
-    Simulator simulator(width, depth, squareSize, Simulator::TYPE_AVOIDANCE, windowWidth, DATA_DIRECTORY);
+    Simulator simulator(width, depth, squareSize, windowWidth, DATA_DIRECTORY);
     simulator.runSimulation();
 }
 
@@ -94,27 +97,28 @@ void launchOdometry(StereoPair stereoCam){
 
 
 void mainLoop(StereoPair &stereoCam) {
-    float scenWidth = 3.0;  // meters
-    float scenDepth = 2.0;  // meters
-    float squareSize = 0.1; // meters
-    //ObstacleScenario obstacleScenario(scenWidth, scenDepth, squareSize);
-    
-    Simulator simulator = Simulator(scenWidth, scenDepth, squareSize, Simulator::TYPE_AVOIDANCE, 1200, DATA_DIRECTORY);
-    simulator.scenario.regionOfInterest = Rect(20, 200, WIDTH-20, 5);  //Region of the disparity map to convert into a grid obstacle map
+    float scenWidth = 2.0;  // meters
+    float scenDepth = 1.0;  // meters
+    float squareSize = 0.008; // meters
+    int iteration = 0;
+    float fieldOfView = -1;
+    Simulator simulator = Simulator(scenWidth, scenDepth, squareSize, 1200, DATA_DIRECTORY);
+    simulator.scenario.minY = 0.0;
+    simulator.scenario.maxY = 0.1;
+    simulator.scenario.scaleFactor = SCALE_FACTOR_3D_RECONSTRUCTION;
     
     while(true){
         ////////////////Camera update////////////////////
         stereoCam.updateImages();
         stereoCam.updateDisparityImg();
         stereoCam.updateImage3D();
+        if (iteration == 0) fieldOfView = stereoCam.computeFieldOfView();
         /////////////Obstacle map update/////////////////
         Mat image3D = stereoCam.image3D;
-        //imshow("image3D", image3D);
-        //waitKey(0);
         bool obstaclesDetected = false;
         simulator.scenario.populateScenario(image3D, obstaclesDetected);
         ///////////Display internal update///////////////
-        Mat display = simulator.drawScenario(simulator.scenario.points);
+        Mat display = simulator.drawScenario(simulator.scenario.points, fieldOfView);
         ////////////Avoidance path update////////////////
         float newCurveRadius = 10000.0; // In meters. 10000 means infinity (straight path)
         if (obstaclesDetected) {
@@ -124,19 +128,13 @@ void mainLoop(StereoPair &stereoCam) {
         ///////////////Display update////////////////////
         imshow("Simulator", display);
         
-        //////////////Display point cloud////////////////
-        //if(obstaclesDetected){
-        //stereoCam.run3DVisualizer();
-        //}
-        
-        //Program stops when user presses ESC key
-        //If no window is open, this won't work
-        int keyPressed = waitKey(10);
+        int keyPressed = int(char(waitKey(10)));
         if( keyPressed== 27) {
             destroyWindow("Simulator");
             for(int i = 0; i < 10; i++) waitKey(1);
             return;
         }
+        iteration++;
     }
 }
 
@@ -154,11 +152,19 @@ int main(int argc, char* argv[])
         boost::filesystem::copy(boost::filesystem::path(INSTALL_DIRECTORY + "stereo_calibration_parameters.xml"), boost::filesystem::path(DATA_DIRECTORY + "stereo_calibration_parameters.xml"));
     }
     
+    // Detect the number of threads available
+    int threadCount = 0;
+    #pragma omp parallel
+    {threadCount++;}
+    cout << "Number of threads: " << threadCount << endl;
+    
     StereoPair stereoCam(WIDTH, HEIGHT, FPS, DATA_DIRECTORY);
+    stereoCam.maximumDepth = MAX_DEPTH;
     
     // Print options menu
     cout << "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
     cout << "Please write the desired command and press the ENTER key." << endl;
+    cout << "Note: windows cannot be closed, ESC key must pe pressed instead." << endl;
     cout << "The following is a list of commands and the part of the program they activate:\n" << endl;
     cout << "0  : Show rectified images" << endl;
     cout << "1  : Show unrectified images" << endl;
@@ -168,14 +174,14 @@ int main(int argc, char* argv[])
     cout << "5  : autotune exposure" << endl;
     cout << "6  : calibrate stereo camera" << endl;
     cout << "7  : Launch path planner simulator" << endl;
-    cout << "8  : Launch feature tracking (current progress in odometry)" << endl;
+    cout << "8  : Launch feature tracking" << endl;
     cout << "9  : Start main loop" << endl;
-    cout << "10 : Exit" << endl;
+    cout << "10 : Exit\n" << endl;
     
     bool commandRecognised = false;
     while(!commandRecognised) {
         bool commandRecognised = true;
-        cout << "\rCommand: ";
+        cout << "Command: ";
         int command;
         cin >> command;
         switch (command) {
@@ -192,7 +198,6 @@ int main(int argc, char* argv[])
                 break;
             case 3:
                 stereoCam.displayImage3D();
-                cout << "Due to an unresolved bug in the VTK library, closing the point cloud window will block the program.\nPlease use the ESC key instead." << endl;
                 break;
             case 4:
                 stereoCam.flipUpsideDown();

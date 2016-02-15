@@ -17,8 +17,7 @@ float mapValue(float val, float min1, float max1, float min2, float max2){
         min2 = tmpMin;
         invertRet = true;
     }
-    if (invertRet) return (max2 - (((val - min1) * max2) / max1) - min2);
-    else return ((((val - min1) * max2) / max1) - min2);
+    return (((val - min1)*(max2-min2))/(max1-min1))+min2;
 }
 
 float constrain(float val, float min, float max){
