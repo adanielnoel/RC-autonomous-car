@@ -20,15 +20,31 @@ float mapValue(float val, float min1, float max1, float min2, float max2){
     return (((val - min1)*(max2-min2))/(max1-min1))+min2;
 }
 
-float constrain(float val, float min, float max){
-    if (min > max) {
-        float tmp = max;
-        max = min;
-        min = tmp;
-    }
-    if (val < min) val = min;
-    else if (val > max) val = max;
-    return val;
+int numberOfAvailableThreads(){
+    int threadCount = 0;
+    # pragma omp parallel
+    {threadCount++;}
+    return 4;
+    //return threadCount;
+}
+
+template <typename T>
+inline T const& Max(T const& a, T const& b){
+    return a < b ? b:a;
+}
+
+template <typename T>
+inline T const& Min(T const& a, T const& b){
+    return a > b ? b:a;
+}
+
+template <typename T>
+inline T const& constrain (T const& val, T const& limit1, T const& limit2){
+    T const& min = Min(limit1, limit2);
+    T const& max = Max(limit1, limit2);
+    if (val < min) return min;
+    else if (val > max) return max;
+    else return val;
 }
 
 struct Color {

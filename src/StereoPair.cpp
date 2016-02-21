@@ -314,13 +314,45 @@ void StereoPair::resizeImages(float scaleFactor){
 //————————————————————————————————————————————————————————————————————
 
 void StereoPair::updateDisparityImg(float scaleFactor){
+    const int numThreads = numberOfAvailableThreads();
+    
     if(scaleFactor != 1.0){
         Mat scaledLeftImage, scaledRightImage;
         int interpolationMethod = INTER_AREA;
 
         resize(leftImage, scaledLeftImage, Size(), scaleFactor, scaleFactor, interpolationMethod);
         resize(rightImage, scaledRightImage, Size(), scaleFactor, scaleFactor, interpolationMethod);
-        semiGlobalBlobMatch(scaledLeftImage, scaledRightImage, disparityMap);
+        
+        if (numThreads > 1){
+            // Divide the disparity map computation into diferent threads by making each thread compute a strip of the disparity map
+            const int extraMargin = 10; // This is for SGBM to use neighbour comparison and make the later strip fusion smooth
+            Mat *dispMaps = new Mat[numThreads]; // Since numThreads is unknown, create a dynamically allocated array
+
+            # pragma omp parallel for
+            for (int i = 0; i < numThreads; i++) {
+                int marginTop = i > 0 ? extraMargin : 0;
+                int marginBottom = i < numThreads-1 ? extraMargin : 0;
+                Rect roi(0, scaledLeftImage.rows*i/numThreads-marginTop, scaledLeftImage.cols, scaledLeftImage.rows/numThreads+marginBottom + marginTop);
+                Mat imR_strip = scaledRightImage(roi);
+                Mat imL_strip = scaledLeftImage(roi);
+                semiGlobalBlobMatch(imL_strip, imR_strip, dispMaps[i]);
+            }
+            
+            // Merge strips into a single disparity map
+            disparityMap = Mat(scaledLeftImage.size(), 3);
+            for (int i = 0; i < numThreads; i++) {
+                int marginTop = i > 0 ? extraMargin : 0;
+                int marginBottom = i < numThreads-1 ? extraMargin : 0;
+                Mat roiDispMap = disparityMap(Rect(0, i*(disparityMap.rows/numThreads), disparityMap.cols, disparityMap.rows/numThreads));
+                Mat roiStrip = dispMaps[i](Rect(0, marginTop, dispMaps[i].cols, dispMaps[i].rows - marginBottom - marginTop));
+                roiStrip.copyTo(roiDispMap);
+                
+            }
+            delete [] dispMaps;
+        }
+        else {
+            semiGlobalBlobMatch(scaledLeftImage, scaledRightImage, disparityMap);
+        }
         resize(disparityMap, disparityMap, Size(), 1/scaleFactor, 1/scaleFactor, interpolationMethod);
     }
     
@@ -400,8 +432,9 @@ void StereoPair::updatePointCloudVisualizer(boost::shared_ptr<pcl::visualization
         #pragma omp parallel for
         for(unsigned int i = 0; i < point_cloud_ptr->size(); i++){
             float pz = point_cloud_ptr->at(i).z;
-            uint8_t r(255 - constrain(mapValue(pz, minZ, maxZ, 0, 255), 0, 255));
-            uint8_t g(constrain(mapValue(pz, minZ, maxZ, 0, 255), 0, 255));
+            int pz_mapped = int(mapValue(pz, minZ, maxZ, 0, 255));
+            uint8_t r(255 - constrain(pz_mapped, 0, 255));
+            uint8_t g(constrain(pz_mapped, 0, 255));
             uint8_t b(15);
             uint32_t rgb = (static_cast<uint32_t>(r) << 16 |
                             static_cast<uint32_t>(g) << 8 | static_cast<uint32_t>(b));
@@ -969,8 +1002,9 @@ void StereoPair::autoTuneExposure(){    // TODO: auto adjust infrared led intens
         }
         
         if (whitePixelsCount > maxNumberOfWhitePixels)
-            exposure -= 2;
-        else if (whitePixelsCount < minNumberOfWhitePixels) exposure += 2;
+            exposure = constrain(exposure-2, 0, 100);
+        else if (whitePixelsCount < minNumberOfWhitePixels)
+            exposure = constrain(exposure+2, 0, 100);
     
         SetExposure(exposure);
         updateImages();

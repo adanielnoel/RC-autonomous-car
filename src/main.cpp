@@ -99,7 +99,7 @@ void launchOdometry(StereoPair stereoCam){
 void mainLoop(StereoPair &stereoCam) {
     float scenWidth = 2.0;  // meters
     float scenDepth = 1.0;  // meters
-    float squareSize = 0.008; // meters
+    float squareSize = 0.08; // meters
     int iteration = 0;
     float fieldOfView = -1;
     Simulator simulator = Simulator(scenWidth, scenDepth, squareSize, 1200, DATA_DIRECTORY);
@@ -152,19 +152,20 @@ int main(int argc, char* argv[])
         boost::filesystem::copy(boost::filesystem::path(INSTALL_DIRECTORY + "stereo_calibration_parameters.xml"), boost::filesystem::path(DATA_DIRECTORY + "stereo_calibration_parameters.xml"));
     }
     
+    cout << "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
     // Detect the number of threads available
     int threadCount = 0;
     #pragma omp parallel
     {threadCount++;}
-    cout << "Number of threads: " << threadCount << endl;
+    cout << "Number of threads: " << threadCount << endl << endl;
     
     StereoPair stereoCam(WIDTH, HEIGHT, FPS, DATA_DIRECTORY);
     stereoCam.maximumDepth = MAX_DEPTH;
     
     // Print options menu
-    cout << "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
+    
+    cout << "Note: windows cannot be closed, ESC key must pe pressed instead." << endl << endl;
     cout << "Please write the desired command and press the ENTER key." << endl;
-    cout << "Note: windows cannot be closed, ESC key must pe pressed instead." << endl;
     cout << "The following is a list of commands and the part of the program they activate:\n" << endl;
     cout << "0  : Show rectified images" << endl;
     cout << "1  : Show unrectified images" << endl;

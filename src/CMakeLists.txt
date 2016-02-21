@@ -1,6 +1,4 @@
 cmake_minimum_required (VERSION 2.8.5 FATAL_ERROR)
-SET(CMAKE_C_COMPILER /usr/local/bin/gcc-5)
-SET(CMAKE_CXX_COMPILER /usr/local/bin/gcc-5)
 add_compile_options(-std=c++0x)
 set(ProjectName Autonomous_RC_Car)
 project(${ProjectName})
