@@ -24,8 +24,8 @@ int numberOfAvailableThreads(){
     int threadCount = 0;
     # pragma omp parallel
     {threadCount++;}
-    return 4;
-    //return threadCount;
+    
+    return threadCount;
 }
 
 template <typename T>

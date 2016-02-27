@@ -10,7 +10,7 @@
 #define FPS		30
 #define FOV     70
 #define DUO3D
-#define MAX_DEPTH 2.0
+#define MAX_DEPTH 1.8
 // Scale fator for adjusting the scale of the 3D reconstruction
 #define SCALE_FACTOR_3D_RECONSTRUCTION 50.0
 

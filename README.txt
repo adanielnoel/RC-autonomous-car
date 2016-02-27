@@ -2,6 +2,10 @@
 The aim of this project is to develop an on-board computer vision system for an RC car to make it navigate autonomously in indoor and outdoor environments.
 - - -
 
+##Version 0.99 (27 Feb 2016)
+Almost all the code has been refactored and cleaned. It has been tested to work on Mac and Linux (Ubuntu 14.04, probably also in most other systems). Windows is unfortunately not supported because I only wrote the file path handling for Unix systems, the rest of the code should work.
+Development is at the moment abandoned. If you have any question/suggestion please don't hesitate to contact me.
+
 ##Version 0.9 (16 Jun 2015)
 - Part of the avoidance path planning algorithm has been rewritten. No known bugs so far.
 - Setting the DO_MAIN_LOOP variable to true makes the stereoCam and the avoidance algorithms work together in real-time with nice 2D visualisation using the Simulator.
