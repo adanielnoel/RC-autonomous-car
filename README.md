@@ -1,9 +1,21 @@
 # Self Driving RC Car
 The aim of this project was to develop an on-board computer vision system for an RC car to make it navigate autonomously in indoor and outdoor environments.
+
+You can see all features of the code in this repository in the following video:
+
+[![Link to video](video-link_image.png)](https://www.youtube.com/watch?v=NFtwV7u9N58&t=4s)
+
+The whole project was documented on:
+
+https://futuretechmaker.wordpress.com/projects/cv_autonomous_car/
+
+This was a high-school project, you can read the final report here:
+
+https://drive.google.com/file/d/0B9eB9OXoMMAbc3pSX0RPaGdIaXc/view
 - - -
 
 ### Version 0.99 (27 Feb 2016)
-Almost all the code has been refactored and cleaned. It has been tested to work on Mac and Linux (Ubuntu 14.04, probably also in most other systems). Windows is unfortunately not supported because I only wrote the file path handling for Unix systems, the rest of the code should work.
+Almost all the code has been refactored and cleaned. It has been tested to work on Mac and Linux (Ubuntu 14.04, probably also in most other systems). Windows is unfortunately not supported because I only wrote the file path handling for Unix systems, the rest of the code should work. Note that the camera 
 Development is at the moment abandoned. If you have any question/suggestion please don't hesitate to contact me.
 
 ### Version 0.9 (16 Jun 2015)
